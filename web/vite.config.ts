@@ -7,11 +7,11 @@ export default defineConfig({
   plugins: [react(), VitePWA({
     registerType: 'prompt',
     manifest: {
-      name: '拼豆画板', short_name: '拼豆画板', lang: 'zh-CN',
+      name: '老派拼豆之必要', short_name: '老派拼豆之必要', lang: 'zh-CN',
       start_url: '/', scope: '/', display: 'standalone',
       theme_color: '#16705b', background_color: '#f4f6f5',
-      icons: [{src:'/icons/icon-192.png',sizes:'192x192',type:'image/png'},
-        {src:'/icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}],
+      icons: [{src:'/icons/laopai-192.png',sizes:'192x192',type:'image/png'},
+        {src:'/icons/laopai-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}],
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,png}'],

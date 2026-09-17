@@ -1,8 +1,10 @@
-# 拼豆画板 MVP
+# 老派拼豆之必要 MVP
 
 手机、平板优先的响应式 Web/PWA。前端 React 19 + TypeScript + Canvas，后端 Go + SQLite。无需付费云数据库、短信或对象存储服务。
 
 iPadOS 14.7.1 的适配检查、HTTPS 发布、添加到主屏幕及断网验收步骤见 [iPad 安装与离线使用](deploy/IPAD_INSTALL.md)。
+
+应用图标使用 `assets/app-logo.jpg` 中的原图。安装前端依赖后，运行 `node scripts/generate-icons.mjs` 可重新生成网页、iPad 和 PWA 的 PNG 图标；生成结果随源码提交，服务器正常构建无需另行生成。已有主屏幕入口的名称与图标更新方法见安装说明。
 
 ## 本地启动
 

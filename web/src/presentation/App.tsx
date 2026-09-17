@@ -188,7 +188,7 @@ export default function App() {
   return <div className="app-shell">
     <header className="app-header">
       <div className="header-identity">
-      <div className="brand"><img src="/icons/icon-192.png" alt="" width={32} height={32}/><span>拼豆画板</span></div>
+      <div className="brand"><img src="/icons/laopai-192.png" alt="" width={32} height={32}/><span>老派拼豆之必要</span></div>
       <div className="document-heading"><button className="document-name" title="重命名作品" disabled={!!busy || !workspace.ready} onClick={() => {
         const name = window.prompt('作品名称', workspace.work.document.name); if (name === null) return;
         try { const w = workspace.current(); w.document.name = validateName(name); workspace.metadata(w); workspace.changed(); } catch (e) { setFailure((e as Error).message); }

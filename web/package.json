@@ -1,0 +1,31 @@
+{
+  "name": "pindou-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "culori": "^4.0.2",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/culori": "^4.0.1",
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^4.7.0",
+    "fake-indexeddb": "^6.2.2",
+    "typescript": "~5.9.2",
+    "vite": "^6.3.6",
+    "vite-plugin-pwa": "^1.0.3",
+    "vitest": "^3.2.4"
+  }
+}

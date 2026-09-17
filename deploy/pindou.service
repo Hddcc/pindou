@@ -1,0 +1,21 @@
+[Unit]
+Description=Pindou API
+After=network.target
+
+[Service]
+User=pindou
+Group=pindou
+WorkingDirectory=/opt/pindou
+EnvironmentFile=/opt/pindou/pindou.env
+ExecStart=/opt/pindou/bin/pindou-server
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/pindou/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+beads.example.com {
+    encode zstd gzip
+    log
+    @manifest path /manifest.webmanifest
+    header @manifest Content-Type application/manifest+json
+    @shell path /index.html /sw.js /
+    header @shell Cache-Control no-cache
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8080
+    }
+    handle {
+        root * /opt/pindou/web
+        try_files {path} /index.html
+        file_server
+    }
+}

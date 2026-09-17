@@ -1,0 +1,14 @@
+[Unit]
+Description=Pindou SQLite backup
+
+[Service]
+Type=oneshot
+User=pindou
+Group=pindou
+WorkingDirectory=/opt/pindou
+EnvironmentFile=/opt/pindou/pindou.env
+ExecStart=/opt/pindou/bin/pindou-backup -dir /opt/pindou/backups
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/pindou/data /opt/pindou/backups

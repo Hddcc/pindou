@@ -1,0 +1,11 @@
+node_modules/
+web/dist/
+server/data/*.db*
+server/bin/
+.run/
+server/backups/
+*.log
+.env
+artifacts/
+web/test-results/
+web/playwright-report/

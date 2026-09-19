@@ -149,11 +149,67 @@ describe('editing and history', () => {
     ]);
   });
 });
-describe('selection movement and export', () => {
+describe('centered canvas resize', () => {
+  const snapshot = validateSnapshot({schemaVersion: 1, width: 4, height: 4, cells: [
+    {x: 0, y: 0, colorCode: 'H7'}, {x: 2, y: 2, colorCode: '#123456'},
+  ]});
+  it('expands around the center and undoes dimensions and colors together', () => {
+    const editor = new Editor(snapshot);
+    expect(editor.resize(8, 6)).toBe(true);
+    expect(editor.snapshot()).toEqual({schemaVersion: 1, width: 8, height: 6, cells: [
+      {x: 2, y: 1, colorCode: 'H7'}, {x: 4, y: 3, colorCode: '#123456'},
+    ]});
+    const expanded = editor.snapshot(); editor.undo(); expect(editor.snapshot()).toEqual(snapshot); expect(editor.canUndo).toBe(false);
+    editor.redo(); expect(editor.snapshot()).toEqual(expanded);
+  });
+  it('crops symmetrically and restores cropped colors on undo', () => {
+    const editor = new Editor(snapshot); editor.resize(2, 2);
+    expect(editor.snapshot()).toEqual({schemaVersion: 1, width: 2, height: 2, cells: [{x: 1, y: 1, colorCode: '#123456'}]});
+    editor.undo(); expect(editor.snapshot()).toEqual(snapshot);
+  });
+  it('keeps odd-size expansion balanced to within one cell and supports mixed history', () => {
+    const editor = new Editor(snapshot); editor.resize(7, 5);
+    expect(editor.get(1, 0)).toBe('H7'); expect(editor.get(3, 2)).toBe('#123456');
+    editor.paint(6, 4, 'F9'); editor.endStroke(); editor.undo(); editor.undo(); expect(editor.snapshot()).toEqual(snapshot);
+    editor.redo(); editor.redo(); expect(editor.get(6, 4)).toBe('F9');
+  });
+  it('rejects invalid dimensions without mutations and ignores unchanged dimensions', () => {
+    const editor = new Editor(snapshot); expect(editor.resize(4, 4)).toBe(false); expect(editor.canUndo).toBe(false);
+    for (const size of [0, -1, 201, 1.5, NaN, Infinity]) expect(() => editor.resize(size, 4)).toThrow();
+    expect(editor.snapshot()).toEqual(snapshot); expect(editor.canUndo).toBe(false);
+  });
+});
+
+describe('selection deletion, movement and export', () => {
   const snapshot = validateSnapshot({schemaVersion: 1, width: 8, height: 6, cells: [
     {x: 1, y: 1, colorCode: 'H7'}, {x: 2, y: 2, colorCode: '#123456'},
     {x: 4, y: 2, colorCode: 'F9'}, {x: 5, y: 2, colorCode: 'A1'},
   ]});
+  it('deletes only selected colors as one history entry and restores RGB and MARD colors', () => {
+    const editor = new Editor(snapshot);
+    expect(editor.clearRegion({x: 1, y: 1, width: 2, height: 2})).toBe(true);
+    expect(editor.snapshot().cells).toEqual(snapshot.cells.filter(cell => cell.x >= 4));
+    const cleared = editor.snapshot();
+    expect(editor.undo()).toBe(true); expect(editor.snapshot()).toEqual(snapshot); expect(editor.canUndo).toBe(false);
+    expect(editor.redo()).toBe(true); expect(editor.snapshot()).toEqual(cleared);
+  });
+  it('does not record empty selections or blank regions and preserves redo', () => {
+    const editor = new Editor(snapshot);
+    for (const selection of [{x: 0, y: 0, width: 1, height: 1}, {x: 1, y: 1, width: 0, height: 2}, {x: 1, y: 1, width: 2, height: 0}])
+      expect(editor.clearRegion(selection)).toBe(false);
+    expect(editor.canUndo).toBe(false); expect(editor.snapshot()).toEqual(snapshot);
+    editor.clearRegion({x: 1, y: 1, width: 2, height: 2}); editor.undo();
+    expect(editor.clearRegion({x: 0, y: 0, width: 1, height: 1})).toBe(false); expect(editor.canRedo).toBe(true);
+  });
+  it('clips selection deletion to the board without wrapping rows', () => {
+    const editor = new Editor(snapshot);
+    expect(editor.clearRegion({x: -10, y: -10, width: 12, height: 12})).toBe(true);
+    expect(editor.snapshot().cells).toEqual(snapshot.cells.filter(cell => cell.colorCode !== 'H7'));
+    editor.undo();
+    expect(editor.clearRegion({x: 5, y: 2, width: 100, height: 100})).toBe(true);
+    expect(editor.snapshot().cells).toEqual(snapshot.cells.filter(cell => cell.colorCode !== 'A1'));
+    expect(editor.clearRegion({x: 8, y: 0, width: 10, height: 10})).toBe(false);
+  });
   it('moves sparse colors as one history entry and leaves blank destinations intact', () => {
     const editor = new Editor(snapshot);
     expect(editor.moveRegion({x: 1, y: 1, width: 2, height: 2}, 3, 0)).toBe(true);

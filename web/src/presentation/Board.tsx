@@ -46,12 +46,12 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
     redraw(n => n + 1);
   // Cancel interrupted gestures without committing document changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, beadMode, drawingTool]);
+  }, [editor, editor.width, editor.height, beadMode, drawingTool]);
   useEffect(() => {
     fit();
     return () => { editor.cancelStroke(); pointers.current.clear(); gesture.current = null; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor]);
+  }, [editor, editor.width, editor.height]);
   useLayoutEffect(() => {
     const c = canvas.current!;
     const {width, height} = dimensions.current, dpr = window.devicePixelRatio || 1;
@@ -89,12 +89,12 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
       ctx.moveTo(v.x + bw / 2, Math.max(0, v.y)); ctx.lineTo(v.x + bw / 2, Math.min(height, v.y + bh));
       ctx.moveTo(Math.max(0, v.x), v.y + bh / 2); ctx.lineTo(Math.min(width, v.x + bw), v.y + bh / 2); ctx.stroke(); ctx.restore();
     }
-    if (settings.showCodes && v.size >= 3) {
-      const fontSize = Math.min(10, v.size * .38); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (settings.showCodes && v.size >= 14) {
+      const fontSize = Math.max(6, Math.min(26, v.size * .38)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `600 ${fontSize}px system-ui`;
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
         const code = editor.get(x, y); if (!code || (beadMode && filter && code !== filter)) continue;
-        const labels = cellColorLabels(code), labelSize = code.startsWith('#') ? Math.min(10, v.size * .34) : fontSize;
+        const labels = cellColorLabels(code), labelSize = code.startsWith('#') ? Math.max(6, Math.min(26, v.size * .34)) : fontSize;
         ctx.font = `600 ${labelSize}px system-ui`; ctx.fillStyle = readableText(code);
         labels.forEach((label, index) => ctx.fillText(label, v.x + (x + .5) * v.size,
           v.y + (y + .5) * v.size + (index - (labels.length - 1) / 2) * labelSize * 1.15, Math.max(1, v.size - Math.min(3, v.size * .12))));

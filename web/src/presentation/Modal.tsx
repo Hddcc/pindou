@@ -21,7 +21,13 @@ export function Modal({title, children, onClose, wide = false}: {title: string; 
       }
     };
     document.addEventListener('keydown', keydown, true);
-    return () => { document.removeEventListener('keydown', keydown, true); if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); };
+    return () => {
+      document.removeEventListener('keydown', keydown, true);
+      if (previous instanceof HTMLElement && previous.isConnected) {
+        const target = previous.getClientRects().length ? previous : previous.closest('.header-actions')?.querySelector<HTMLElement>('.actions-trigger');
+        target?.focus();
+      }
+    };
   }, [native]);
   const contents = <><header className="modal-heading"><h2>{title}</h2><button className="icon-button" title="关闭" aria-label="关闭" onClick={onClose}><X size={20}/></button></header>{children}</>;
   if (!native) return createPortal(<div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>

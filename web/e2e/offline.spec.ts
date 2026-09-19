@@ -2,6 +2,7 @@ import {expect, test} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import path from 'node:path';
+import {clickTool, dismissSuccess} from './helpers';
 
 test.use({baseURL: undefined});
 const mime: Record<string, string> = {'.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.webmanifest': 'application/manifest+json'};
@@ -48,13 +49,15 @@ test('cached production app reopens offline, recovers, edits and downloads local
   await page.getByTestId('board').click({position: {x: board.width / 2 + 30, y: board.height / 2}});
   await expect(page.locator('.bead-count')).toHaveText('2 颗拼豆');
   await expect(page.locator('.save-status')).toHaveText(/已自动保存/);
-  await page.getByRole('button', {name: '保存', exact: true}).click();
+  await clickTool(page, '保存');
   const fileEvent = page.waitForEvent('download'); await page.getByRole('button', {name: '保存到本地', exact: false}).click();
   const filePath = await (await fileEvent).path(); expect(filePath).toBeTruthy();
   expect(JSON.parse(await readFile(filePath!, 'utf8')).snapshot.cells).toHaveLength(2);
-  await page.getByRole('button', {name: '导出', exact: true}).click();
+  await dismissSuccess(page, '保存成功');
+  await clickTool(page, '导出');
   const imageEvent = page.waitForEvent('download'); await page.getByRole('button', {name: '下载 PNG', exact: true}).click();
   expect((await imageEvent).suggestedFilename()).toMatch(/\.png$/);
+  await dismissSuccess(page, '导出成功');
   await page.getByRole('button', {name: '关闭', exact: true}).click();
   const originalPage = page;
   page = await context.newPage(); await originalPage.close();

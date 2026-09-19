@@ -63,8 +63,9 @@ export type Document = {fileType: 'pindou'; schemaVersion: 1; name: string; snap
 export type Tool = 'paint' | 'erase' | 'fill' | 'pick' | 'pan' | 'select';
 export type Selection = {x: number; y: number; width: number; height: number};
 type Change = {key: number; before?: string; after?: string};
-type History = {kind: 'edit' | 'erase'; keys: Uint32Array; before: Uint16Array; after: Uint16Array; palette: (string | undefined)[]};
-function compact(changes: Change[], kind: History['kind']): History {
+type EditHistory = {kind: 'edit' | 'erase'; keys: Uint32Array; before: Uint16Array; after: Uint16Array; palette: (string | undefined)[]};
+type History = EditHistory | {kind: 'resize'; before: Snapshot; after: Snapshot};
+function compact(changes: Change[], kind: EditHistory['kind']): EditHistory {
   const palette: (string | undefined)[] = [undefined], index = new Map<string | undefined, number>([[undefined, 0]]);
   const colorIndex = (code?: string) => { if (!index.has(code)) { index.set(code, palette.length); palette.push(code); } return index.get(code)!; };
   return {kind, keys: Uint32Array.from(changes.map(c => c.key)), before: Uint16Array.from(changes.map(c => colorIndex(c.before))),
@@ -110,8 +111,8 @@ export function parseDocument(text: string): Document {
 }
 
 export class Editor {
-  readonly width: number;
-  readonly height: number;
+  width: number;
+  height: number;
   readonly cells = new Map<number, string>();
   private undoStack: History[] = [];
   private redoStack: History[] = [];
@@ -131,6 +132,10 @@ export class Editor {
       cells: [...this.cells].sort(([a], [b]) => a - b).map(([key, colorCode]) => ({x: key % this.width, y: Math.floor(key / this.width), colorCode}))};
   }
   private set(key: number, code?: string) { if (code === undefined) this.cells.delete(key); else this.cells.set(key, code); }
+  private restore(snapshot: Snapshot) {
+    this.width = snapshot.width; this.height = snapshot.height; this.cells.clear(); this.erasedCells.clear();
+    snapshot.cells.forEach(cell => this.cells.set(cell.y * this.width + cell.x, cell.colorCode));
+  }
   paint(x: number, y: number, code?: string) {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) return;
     const key = y * this.width + x, before = this.cells.get(key);
@@ -157,7 +162,7 @@ export class Editor {
       if (e2 <= dx) { err += dx; y += sy; }
     }
   }
-  endStroke(kind: History['kind'] = 'edit') {
+  endStroke(kind: EditHistory['kind'] = 'edit') {
     const changes = [...this.stroke.values()].filter(c => c.before !== c.after);
     this.stroke.clear();
     if (kind === 'erase' || changes.length) this.erasedCells = new Set(kind === 'erase' ? changes.filter(c => c.before !== undefined && c.after === undefined).map(c => c.key) : []);
@@ -184,6 +189,23 @@ export class Editor {
   clear() {
     for (const key of this.cells.keys()) this.paint(key % this.width, Math.floor(key / this.width));
     return this.endStroke();
+  }
+  clearRegion(selection: Selection) {
+    const left = Math.max(0, Math.floor(selection.x)), top = Math.max(0, Math.floor(selection.y));
+    const right = Math.min(this.width, Math.floor(selection.x + selection.width)), bottom = Math.min(this.height, Math.floor(selection.y + selection.height));
+    for (let y = top; y < bottom; y++) for (let x = left; x < right; x++) this.paint(x, y);
+    return this.endStroke();
+  }
+  resize(width: number, height: number) {
+    validateSnapshot({schemaVersion: 1, width, height, cells: []});
+    if (width === this.width && height === this.height) return false;
+    this.cancelStroke();
+    const before = this.snapshot(), dx = Math.floor((width - this.width) / 2), dy = Math.floor((height - this.height) / 2);
+    const after: Snapshot = {schemaVersion: 1, width, height, cells: before.cells
+      .map(cell => ({...cell, x: cell.x + dx, y: cell.y + dy}))
+      .filter(cell => cell.x >= 0 && cell.x < width && cell.y >= 0 && cell.y < height)};
+    this.restore(after); this.undoStack.push({kind: 'resize', before, after}); this.undoStack = this.undoStack.slice(-100); this.redoStack = [];
+    return true;
   }
   mirror(axis: 'horizontal' | 'vertical') {
     const next = new Map<number, string>();
@@ -212,11 +234,17 @@ export class Editor {
     });
     return this.endStroke();
   }
-  undo() { const c = this.undoStack.pop(); if (!c) return false; c.keys.forEach((key, i) => this.set(key, c.palette[c.before[i]])); this.erasedCells.clear(); this.redoStack.push(c); return true; }
+  undo() {
+    const c = this.undoStack.pop(); if (!c) return false;
+    if (c.kind === 'resize') this.restore(c.before);
+    else c.keys.forEach((key, i) => this.set(key, c.palette[c.before[i]]));
+    this.erasedCells.clear(); this.redoStack.push(c); return true;
+  }
   redo() {
     const c = this.redoStack.pop(); if (!c) return false;
     this.erasedCells = new Set<number>();
-    c.keys.forEach((key, i) => { this.set(key, c.palette[c.after[i]]); if (c.kind === 'erase' && c.before[i] !== 0 && c.after[i] === 0) this.erasedCells.add(key); });
+    if (c.kind === 'resize') this.restore(c.after);
+    else c.keys.forEach((key, i) => { this.set(key, c.palette[c.after[i]]); if (c.kind === 'erase' && c.before[i] !== 0 && c.after[i] === 0) this.erasedCells.add(key); });
     this.undoStack.push(c); return true;
   }
 }

@@ -1,4 +1,5 @@
 import {expect, test, type Page} from '@playwright/test';
+import {openActions} from './helpers';
 
 async function assertVisibleEditor(page: Page, height: number) {
   const header = (await page.locator('.app-header').boundingBox())!;
@@ -57,14 +58,15 @@ test('legacy browser without native dialog can save, cancel and restore focus', 
     Object.defineProperty(HTMLDialogElement.prototype, 'close', {value: undefined, configurable: true});
   });
   await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await openActions(page);
   const save = page.getByRole('button', {name: '保存', exact: true}); await save.focus(); await save.press('Enter');
   const modal = page.getByRole('dialog', {name: '保存作品'}); await expect(modal).toBeVisible({timeout: 5000});
   await expect(modal).toHaveAttribute('aria-modal', 'true');
   await page.screenshot({path: testInfo.outputPath('legacy-save-dialog.png')});
   await page.keyboard.press('Shift+Tab');
   expect(await modal.evaluate(element => element.contains(document.activeElement))).toBe(true);
-  await page.keyboard.press('Escape'); await expect(modal).toHaveCount(0); await expect(save).toBeFocused();
-  await save.click(); await page.locator('.modal-overlay').click({position: {x: 2, y: 2}});
+  await page.keyboard.press('Escape'); await expect(modal).toHaveCount(0); await expect(page.getByRole('button', {name: '画布操作', exact: true})).toBeFocused();
+  await openActions(page); await save.click(); await page.locator('.modal-overlay').click({position: {x: 2, y: 2}});
   await expect(modal).toHaveCount(0);
   await page.getByRole('button', {name: '外部取色', exact: true}).click();
   await expect(page.getByRole('dialog', {name: '外部取色'})).toBeVisible();

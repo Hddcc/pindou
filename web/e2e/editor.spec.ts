@@ -1,9 +1,10 @@
 import {expect, test, type Page} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
+import {clickTool as clickCurrentTool, dismissSuccess, openActions} from './helpers';
 
 async function clickTool(page: Page, name: string) {
-  await page.getByRole('button', {name, exact: true}).click();
+  await clickCurrentTool(page, name);
 }
 
 async function loadPattern(page: Page, width: number, height: number, cells: {x: number; y: number; colorCode: string}[], beadMode = false) {
@@ -16,12 +17,14 @@ async function loadPattern(page: Page, width: number, height: number, cells: {x:
   await expect(page.getByRole('button', {name: '新功能测试', exact: true})).toBeVisible();
 }
 async function savedCells(page: Page) {
-  await page.getByRole('button', {name: '保存', exact: true}).click();
+  await clickTool(page, '保存');
   const event = page.waitForEvent('download');
   await page.getByRole('button', {name: '保存到本地', exact: false}).click();
   const location = await (await event).path();
   if (!location) throw new Error('Missing downloaded pattern');
-  return JSON.parse(await readFile(location, 'utf8')).snapshot.cells as {x: number; y: number; colorCode: string}[];
+  const cells = JSON.parse(await readFile(location, 'utf8')).snapshot.cells as {x: number; y: number; colorCode: string}[];
+  await dismissSuccess(page, '保存成功');
+  return cells;
 }
 async function hidePalette(page: Page) {
   const close = page.getByRole('button', {name: '收起色板', exact: true}).first();
@@ -66,7 +69,7 @@ test('touch-friendly drawing, undo, fill and reload recovery', async ({page}) =>
   await clickTool(page, '撤回');
   await expect(page.getByRole('button', {name: '反撤回', exact: true, includeHidden: true})).toBeEnabled();
   await clickTool(page, '反撤回');
-  await clickTool(page, '油漆桶');
+  await clickTool(page, '填色');
   await board.click({position: {x: bounds.width / 2 - 22, y: bounds.height / 2}});
   await expect(page.locator('.bead-count')).toHaveText('256 颗拼豆');
   await expect(page.locator('.save-status')).toHaveText(/已自动保存 \d{2}:\d{2}/);
@@ -82,18 +85,20 @@ test('local file round trip and transparent/grid downloads', async ({page}, test
   await page.getByLabel('打开作品文件', {exact: true}).setInputFiles(path.resolve('e2e/fixtures/sample.pindou'));
   await expect(page.getByRole('button', {name: '测试文件', exact: true})).toBeVisible();
   await expect(page.locator('.bead-count')).toHaveText('4 颗拼豆');
-  await page.locator('.save-button').click();
+  await clickTool(page, '保存');
   const fileDownload = page.waitForEvent('download');
   await page.getByRole('button', {name: '保存到本地', exact: false}).click();
   const downloaded = await fileDownload, filename = testInfo.outputPath('roundtrip.pindou'); await downloaded.saveAs(filename);
+  await dismissSuccess(page, '保存成功');
   const d = JSON.parse(await readFile(filename, 'utf8'));
   expect(d.snapshot.cells).toHaveLength(4); expect(d.name).toBe('测试文件');
-  await page.getByRole('button', {name: '导出', exact: true}).click();
+  await clickTool(page, '导出');
   for (const mode of ['grid', 'clean']) {
     if (mode === 'clean') await page.getByRole('button', {name: '透明背景', exact: true}).click();
     const downloadEvent = page.waitForEvent('download'); await page.getByRole('button', {name: '下载 PNG', exact: true}).click();
     const png = await downloadEvent; expect(png.suggestedFilename()).toBe(`测试文件-${mode}.png`);
     await png.saveAs(testInfo.outputPath(`${mode}.png`));
+    await dismissSuccess(page, '导出成功');
   }
 });
 
@@ -118,7 +123,7 @@ test('palette groups colors by family and preserves search, filters and selectio
   await page.getByLabel('色系', {exact: true}).selectOption('B');
   await expect(families).toHaveCount(1); await expect(b.getByRole('button')).toHaveCount(32);
   await b.getByRole('button', {name: '颜色 B01', exact: true}).click();
-  await expect(page.locator('.selected-color strong')).toHaveText('B01');
+  await expect(page.getByRole('button', {name: '选择颜色 B01', exact: true})).toHaveAttribute('aria-pressed', 'true');
   await expect(b.getByRole('button', {name: '颜色 B01', exact: true})).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel('色系', {exact: true}).selectOption('全部');
   await page.getByLabel('搜索色号', {exact: true}).fill('F09');
@@ -153,14 +158,14 @@ test('custom RGB, large eraser, grid settings and immediate reload recovery', as
   await page.getByLabel('HEX 颜色', {exact: true}).fill('#1A2B3C');
   await expect(page.locator('.picker-result strong')).toHaveText('RGB(26, 43, 60)');
   await page.getByRole('button', {name: '使用此颜色', exact: true}).click();
-  await clickTool(page, '油漆桶');
+  await clickTool(page, '填色');
   const bounds = await board.boundingBox(); if (!bounds) throw new Error('Canvas not rendered');
   await board.click({position: {x: bounds.width / 2 + 8, y: bounds.height / 2 + 8}});
   await expect(page.locator('.bead-count')).toHaveText('64 颗拼豆');
   await page.reload(); await expect(board).toBeVisible();
   await expect(page.locator('.bead-count')).toHaveText('64 颗拼豆');
   await clickTool(page, '橡皮擦');
-  await page.getByLabel('橡皮擦尺寸', {exact: true}).selectOption('4');
+  await page.getByRole('button', {name: '橡皮擦尺寸 4 × 4', exact: true}).click();
   const afterReload = await board.boundingBox(); if (!afterReload) throw new Error('Canvas not rendered');
   await board.click({position: {x: afterReload.width / 2 + 8, y: afterReload.height / 2 + 8}});
   await expect(page.locator('.bead-count')).toHaveText('48 颗拼豆');
@@ -181,7 +186,7 @@ test('custom RGB, large eraser, grid settings and immediate reload recovery', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   await page.screenshot({path: testInfo.outputPath('rgb-board.png')});
 
-  await page.getByRole('button', {name: '导出', exact: true}).click();
+  await clickTool(page, '导出');
   const preview = page.getByAltText('图纸导出预览'); await expect(preview).toBeVisible();
   await expect(page.locator('.export-spec')).toContainText('320 × 328 px');
   const pixel = await preview.evaluate((element: HTMLImageElement) => {
@@ -203,6 +208,7 @@ test('custom RGB, large eraser, grid settings and immediate reload recovery', as
   await expect(page.locator('.export-spec')).toContainText('160 × 160 px');
   const downloadEvent = page.waitForEvent('download'); await page.getByRole('button', {name: '下载 PNG', exact: true}).click();
   const png = await downloadEvent, filename = testInfo.outputPath('rgb-clean.png'); await png.saveAs(filename);
+  await dismissSuccess(page, '导出成功');
   await page.getByRole('button', {name: '关闭', exact: true}).click();
   await clickTool(page, '外部取色');
   await page.getByLabel('HEX 颜色', {exact: true}).fill('#FFFFFF');
@@ -230,7 +236,7 @@ test('recommendations preserve original RGB and apply a chosen MARD color', asyn
   await recommended.first().click();
   await page.screenshot({path: testInfo.outputPath('color-recommendations.png')});
   await page.getByRole('button', {name: '使用此颜色', exact: true}).click();
-  await clickTool(page, '油漆桶');
+  await clickTool(page, '填色');
   await page.getByTestId('board').click();
   const cells = await savedCells(page);
   expect(cells).toHaveLength(64); expect(new Set(cells.map(c => c.colorCode))).toEqual(new Set([colorCode.replace(/^(\D+)0+(\d+)$/, '$1$2')]));
@@ -239,7 +245,7 @@ test('recommendations preserve original RGB and apply a chosen MARD color', asyn
   await recommended.first().click(); await page.getByLabel('HEX 颜色', {exact: true}).fill('#123456');
   await expect(page.getByRole('button', {name: '使用原始颜色', exact: true})).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', {name: '使用此颜色', exact: true}).click();
-  await clickTool(page, '油漆桶');
+  await clickTool(page, '填色');
   await page.getByTestId('board').click();
   expect((await savedCells(page)).every(c => c.colorCode === '#123456')).toBe(true);
 });
@@ -248,23 +254,24 @@ test('bead mode isolates used colors without editing or changing export data', a
   await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
   const original = [{x: 1, y: 1, colorCode: 'H7'}, {x: 1, y: 2, colorCode: 'H7'}, {x: 2, y: 1, colorCode: 'F9'}, {x: 3, y: 1, colorCode: '#123456'}];
   await loadPattern(page, 8, 8, original, true);
-  await expect(page.getByRole('button', {name: '拼豆模式', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  await openActions(page); await expect(page.getByRole('button', {name: '拼豆模式', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', {name: '画布操作', exact: true}).click();
   await page.getByRole('button', {name: '筛选颜色 H07', exact: true}).click();
   await page.locator('.zoom-value').click();
   expect(await sampleBoard(page, 1, 1)).toEqual([0, 0, 0, 255]);
   expect(await sampleBoard(page, 2, 1)).toEqual([241, 243, 242, 255]);
   expect(await sampleBoard(page, 3, 1)).toEqual([255, 255, 255, 255]);
   await expect(page.getByRole('button', {name: '画笔', exact: true, includeHidden: true})).toBeDisabled();
-  await expect(page.getByRole('button', {name: '清空画布', exact: true})).toBeDisabled();
+  await expect(page.getByRole('button', {name: '清空画布', exact: true, includeHidden: true})).toBeDisabled();
   await page.getByTestId('board').click();
   expect(await savedCells(page)).toEqual(original.sort((a, b) => a.y - b.y || a.x - b.x));
-  await page.getByRole('button', {name: '查看用色统计', exact: true}).click();
+  await clickTool(page, '查看用色统计');
   await expect(page.getByTestId('usage-total')).toHaveText('3 色4 颗拼豆');
   await page.getByRole('button', {name: '已用颜色 F09，1 颗', exact: true}).click();
   await page.screenshot({path: testInfo.outputPath('used-color-statistics.png')});
   await hidePalette(page);
   expect(await sampleBoard(page, 1, 1)).toEqual([255, 255, 255, 255]);
-  await page.getByRole('button', {name: '导出', exact: true}).click();
+  await clickTool(page, '导出');
   await page.getByRole('button', {name: '透明背景', exact: true}).click();
   const pixel = await page.getByAltText('图纸导出预览').evaluate((element: HTMLImageElement) => {
     const canvas = document.createElement('canvas'); canvas.width = element.naturalWidth; canvas.height = element.naturalHeight;
@@ -273,9 +280,9 @@ test('bead mode isolates used colors without editing or changing export data', a
   });
   expect(pixel).toEqual([0, 0, 0, 255]);
   await page.getByRole('button', {name: '关闭', exact: true}).click();
-  await page.getByRole('button', {name: '绘图模式', exact: true}).click();
+  await clickTool(page, '绘图模式');
   await page.getByRole('button', {name: '适配画布', exact: true}).click();
-  const toolbarFits = await page.locator('.canvas-actions').evaluate(element => {
+  const toolbarFits = await page.locator('.actions-menu').evaluate(element => {
     const bounds = element.getBoundingClientRect();
     return element.scrollWidth <= element.clientWidth && [...element.querySelectorAll('button')].every(button => {
       const r = button.getBoundingClientRect();
@@ -291,27 +298,46 @@ test('bead mode isolates used colors without editing or changing export data', a
 test('mirrors, clear confirmation and realtime statistics follow undo and recovery', async ({page}) => {
   await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
   await loadPattern(page, 8, 6, [{x: 1, y: 1, colorCode: 'F9'}, {x: 2, y: 1, colorCode: 'F9'}, {x: 0, y: 5, colorCode: '#123456'}]);
-  await page.getByRole('button', {name: '水平镜像', exact: true}).click();
+  await clickTool(page, '水平镜像');
   expect(await savedCells(page)).toEqual([{x: 5, y: 1, colorCode: 'F9'}, {x: 6, y: 1, colorCode: 'F9'}, {x: 7, y: 5, colorCode: '#123456'}]);
   await clickTool(page, '撤回');
-  await page.getByRole('button', {name: '垂直镜像', exact: true}).click();
+  await clickTool(page, '垂直镜像');
   expect(await savedCells(page)).toEqual([{x: 0, y: 0, colorCode: '#123456'}, {x: 1, y: 4, colorCode: 'F9'}, {x: 2, y: 4, colorCode: 'F9'}]);
   page.once('dialog', dialog => dialog.dismiss());
-  await page.getByRole('button', {name: '清空画布', exact: true}).click(); await expect(page.locator('.bead-count')).toHaveText('3 颗拼豆');
+  await clickTool(page, '清空画布'); await expect(page.locator('.bead-count')).toHaveText('3 颗拼豆');
   page.once('dialog', dialog => dialog.accept());
-  await page.getByRole('button', {name: '清空画布', exact: true}).click(); await expect(page.locator('.bead-count')).toHaveText('0 颗拼豆');
+  await clickTool(page, '清空画布'); await expect(page.locator('.bead-count')).toHaveText('0 颗拼豆');
   await clickTool(page, '撤回'); await expect(page.locator('.bead-count')).toHaveText('3 颗拼豆');
-  await page.getByRole('button', {name: '查看用色统计', exact: true}).click();
+  await clickTool(page, '查看用色统计');
   await expect(page.getByRole('button', {name: '已用颜色 F09，2 颗', exact: true})).toBeVisible();
   await expect(page.getByTestId('usage-total')).toHaveText('2 色3 颗拼豆');
   await page.getByRole('button', {name: '色号', exact: true}).click();
   await hidePalette(page);
   await clickTool(page, '橡皮擦');
-  await page.getByLabel('橡皮擦尺寸', {exact: true}).selectOption('8');
+  await page.getByRole('button', {name: '橡皮擦尺寸 8 × 8', exact: true}).click();
   await page.getByTestId('board').click(); await expect(page.locator('.bead-count')).toHaveText('0 颗拼豆');
-  await page.getByRole('button', {name: '查看用色统计', exact: true}).click(); await expect(page.getByTestId('usage-total')).toHaveText('0 色0 颗拼豆');
+  await clickTool(page, '查看用色统计'); await expect(page.getByTestId('usage-total')).toHaveText('0 色0 颗拼豆');
   await hidePalette(page); await clickTool(page, '撤回');
   await page.reload(); await expect(page.getByTestId('board')).toBeVisible(); await expect(page.locator('.bead-count')).toHaveText('3 颗拼豆');
+});
+
+test('cell labels scale with canvas zoom within readable limits', async ({page}) => {
+  await page.addInitScript(() => {
+    const original = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function(...args: Parameters<typeof original>) {
+      if (args[0] === 'H07') (window as typeof window & {labelFont: string}).labelFont = this.font;
+      return original.apply(this, args);
+    };
+  });
+  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await loadPattern(page, 8, 8, [{x: 1, y: 1, colorCode: 'H7'}]); await page.locator('.zoom-value').click();
+  const font = () => page.evaluate(() => parseFloat(/([\d.]+)px/.exec((window as typeof window & {labelFont: string}).labelFont)![1]));
+  const normal = await font();
+  for (let n = 0; n < 4; n++) await clickTool(page, '放大');
+  expect(await font()).toBeGreaterThan(14); expect(await font()).toBeGreaterThan(normal);
+  for (let n = 0; n < 6; n++) await clickTool(page, '放大');
+  expect(await font()).toBeLessThanOrEqual(26);
+  await page.locator('.zoom-value').click(); expect(await font()).toBeCloseTo(normal);
 });
 
 test('center color and cell-label visibility persist and affect canvas and PNG', async ({page}, testInfo) => {
@@ -329,7 +355,7 @@ test('center color and cell-label visibility persist and affect canvas and PNG',
   await page.getByRole('button', {name: '完成', exact: true}).click();
   await page.locator('.zoom-value').click();
   expect(await sampleBoard(page, 1.35, 1.35)).toEqual([0, 0, 0, 255]);
-  await page.getByRole('button', {name: '导出', exact: true}).click();
+  await clickTool(page, '导出');
   const result = await page.getByAltText('图纸导出预览').evaluate((element: HTMLImageElement) => {
     const canvas = document.createElement('canvas'); canvas.width = element.naturalWidth; canvas.height = element.naturalHeight;
     const ctx = canvas.getContext('2d')!; ctx.drawImage(element, 0, 0);
@@ -375,6 +401,30 @@ test('eraser outlines the full irregular stroke, replaces it and clears it on un
   expect(await hasOutline(5, 5)).toBe(false);
   await clickTool(page, '反撤回');
   expect(await hasOutline(5, 5)).toBe(true);
+});
+
+test('rectangle selection deletes only its colors, confirms, undoes and persists', async ({page}, testInfo) => {
+  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  const original = [{x: 1, y: 1, colorCode: 'H7'}, {x: 2, y: 2, colorCode: '#123456'}, {x: 6, y: 6, colorCode: 'F9'}];
+  await loadPattern(page, 8, 8, original); await page.locator('.zoom-value').click(); await clickTool(page, '选区');
+  const bounds = await page.getByTestId('board').boundingBox(); if (!bounds) throw new Error('Canvas not rendered');
+  const point = (x: number, y: number) => ({x: bounds.x + bounds.width / 2 - 80 + x * 20 + 10, y: bounds.y + bounds.height / 2 - 80 + y * 20 + 10});
+  await page.mouse.move(point(1, 1).x, point(1, 1).y); await page.mouse.down();
+  await page.mouse.move(point(2, 2).x, point(2, 2).y, {steps: 6}); await page.mouse.up();
+  const selection = page.getByTestId('selection-size'), remove = selection.getByRole('button', {name: '删除选区颜色', exact: true});
+  await expect(selection).toContainText('选区 2 × 2'); await expect(remove).toBeEnabled();
+  page.once('dialog', dialog => dialog.dismiss()); await remove.click();
+  expect(await savedCells(page)).toEqual(original); await expect(page.getByRole('button', {name: '撤回', exact: true, includeHidden: true})).toBeDisabled();
+  page.once('dialog', dialog => dialog.accept()); await remove.click();
+  await expect(selection).toContainText('选区 2 × 2'); await expect(remove).toBeDisabled();
+  expect(await savedCells(page)).toEqual([original[2]]);
+  await clickTool(page, '查看用色统计');
+  await expect(page.getByTestId('usage-total')).toHaveText('1 色1 颗拼豆'); await hidePalette(page);
+  await page.screenshot({path: testInfo.outputPath('selection-deleted.png')});
+  await clickTool(page, '撤回'); expect(await savedCells(page)).toEqual(original);
+  await expect(page.getByRole('button', {name: '撤回', exact: true, includeHidden: true})).toBeDisabled();
+  await clickTool(page, '反撤回'); expect(await savedCells(page)).toEqual([original[2]]);
+  await page.reload(); await expect(page.getByTestId('board')).toBeVisible(); expect(await savedCells(page)).toEqual([original[2]]);
 });
 
 test('rectangle selection moves colors, exports a crop and undoes as one step', async ({page}, testInfo) => {
@@ -426,7 +476,7 @@ test('four frozen rulers remain on viewport edges after zoom and pan', async ({p
     });
   }
   expect((await rulerInk()).every(count => count > 10)).toBe(true);
-  await clickTool(page, '平移');
+  await clickTool(page, '移动');
   const bounds = await board.boundingBox(); if (!bounds) throw new Error('Canvas not rendered');
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2); await page.mouse.down();
   await page.mouse.move(bounds.x + bounds.width / 2 + 65, bounds.y + bounds.height / 2 + 45, {steps: 6}); await page.mouse.up();
@@ -456,6 +506,32 @@ test('a second finger cancels selection movement without changing the saved patt
   await expect(page.getByRole('button', {name: '撤回', exact: true, includeHidden: true})).toBeDisabled();
 });
 
+test('eraser sizes open from the tool, remember the choice and preserve toolbar layout', async ({page}, testInfo) => {
+  await page.goto('/'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
+  const dock = page.getByRole('navigation', {name: '绘图工具'}), eraser = dock.getByRole('button', {name: '橡皮擦', exact: true});
+  expect(await dock.locator('.dock-tools > button, .dock-eraser > button, .dock-brush > button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label'))))
+    .toEqual(['移动', '画笔', '橡皮擦', '画布取色', '选区', '外部取色', '画布设置']);
+  const before = await board.boundingBox(), dockBefore = await dock.boundingBox();
+  await eraser.click(); const sizes = dock.getByRole('group', {name: '橡皮擦尺寸', exact: true});
+  await expect(eraser).toHaveAttribute('aria-expanded', 'true');
+  await expect(sizes.getByRole('button', {name: '橡皮擦尺寸 1 × 1', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.workspace-topline select')).toHaveCount(0);
+  expect(await board.boundingBox()).toEqual(before); expect(await dock.boundingBox()).toEqual(dockBefore);
+  const viewport = page.viewportSize()!, popup = (await sizes.boundingBox())!;
+  expect(popup.x).toBeGreaterThanOrEqual(0); expect(popup.x + popup.width).toBeLessThanOrEqual(viewport.width);
+  expect(popup.y).toBeGreaterThanOrEqual(0); expect(popup.y + popup.height).toBeLessThanOrEqual(dockBefore!.y);
+  await page.screenshot({path: testInfo.outputPath('eraser-sizes.png')});
+  const choice = sizes.getByRole('button', {name: '橡皮擦尺寸 4 × 4', exact: true});
+  if (testInfo.project.use.hasTouch) await choice.tap(); else await choice.click();
+  await expect(sizes).toHaveCount(0); await expect(eraser.locator('small')).toHaveText('4');
+  await eraser.click(); await expect(sizes.getByRole('button', {name: '橡皮擦尺寸 4 × 4', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('.workspace-footer').click({position: {x: 2, y: 2}}); await expect(sizes).toHaveCount(0);
+  await eraser.click(); await page.keyboard.press('Escape'); await expect(sizes).toHaveCount(0); await expect(eraser).toBeFocused();
+  await eraser.click(); await clickTool(page, '移动'); await expect(sizes).toHaveCount(0);
+  expect(await board.boundingBox()).toEqual(before);
+  await eraser.click(); await clickTool(page, '拼豆模式'); await expect(sizes).toHaveCount(0); await expect(eraser).toBeDisabled();
+});
+
 test('bottom dock and centered header actions preserve full canvas width', async ({page}, testInfo) => {
   await page.goto('/'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
   const before = await board.boundingBox(); if (!before) throw new Error('Canvas not rendered');
@@ -465,20 +541,22 @@ test('bottom dock and centered header actions preserve full canvas width', async
   const dockBox = (await dock.boundingBox())!;
   expect(dockBox.y).toBeGreaterThanOrEqual(before.y + before.height);
   expect(dockBox.y + dockBox.height).toBeCloseTo(viewport.height, 0);
-  for (const name of ['画笔', '橡皮擦', '油漆桶', '画布取色', '平移', '选区', '外部取色', '画布设置', '打开色板']) {
+  for (const name of ['画笔', '橡皮擦', '画布取色', '移动', '选区', '外部取色', '画布设置']) {
     const button = dock.getByRole('button', {name, exact: true}); await expect(button).toBeVisible();
     const b = (await button.boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0); expect(b.x + b.width).toBeLessThanOrEqual(viewport.width);
   }
+  await expect(page.getByRole('button', {name: '打开色板', exact: true})).toBeVisible();
   const actions = page.getByRole('group', {name: '作品操作'});
   const actionsBox = (await actions.boundingBox())!;
   expect(actionsBox.x + actionsBox.width / 2).toBeCloseTo(viewport.width / 2, 0);
   expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(before.y);
+  await openActions(page);
   for (const name of ['撤回', '反撤回', '保存', '导出']) await expect(actions.getByRole('button', {name, exact: true})).toBeVisible();
   await dock.getByRole('button', {name: '选区', exact: true}).click();
   await expect(dock.getByRole('button', {name: '选区', exact: true})).toHaveAttribute('aria-pressed', 'true');
   await page.screenshot({path: testInfo.outputPath('bottom-dock.png')});
-  const toggle = dock.getByRole('button', {name: '打开色板', exact: true}); await toggle.click();
+  const toggle = page.getByRole('button', {name: '打开色板', exact: true}); await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.palette-panel')).toBeVisible();
   expect((await board.boundingBox())!.width).toBe(before.width);

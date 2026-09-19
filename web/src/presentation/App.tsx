@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode} from 'react';
-import {ArrowDownToLine, ChartColumn, Check, ChevronDown, Cloud, Download, Eraser, Eye, FlipHorizontal2, FlipVertical2, FolderOpen, Grid2X2, Hand, ImageDown, LoaderCircle, LogOut, Maximize, PaintBucket, Palette, Pencil, Pipette, Plus, Redo2, Scan, Search, Trash2, Undo2, UserRound, X, ZoomIn, ZoomOut} from 'lucide-react';
+import {ArrowDownToLine, ChartColumn, Check, ChevronDown, Cloud, Download, Eraser, Eye, FlipHorizontal2, FlipVertical2, FolderOpen, Grid2X2, ImageDown, LoaderCircle, LogOut, Maximize, MoreHorizontal, Move, PaintBucket, Palette, Pencil, Pipette, Plus, Redo2, Scan, Search, Trash2, Undo2, UserRound, X, ZoomIn, ZoomOut} from 'lucide-react';
 import {blank, colorHex, colors, colorStatistics, configureColors, displayColorCode, parseDocument, validateName, type Color, type GridSettings, type Selection, type Snapshot, type Tool} from '../domain/editor';
 import {useWorkspace} from '../application/useWorkspace';
 import {ApiError, cloudDocument, content, request, workBody, type CloudWork, type Summary, type User} from '../infrastructure/api';
@@ -10,9 +10,10 @@ import {Board, type BoardHandle} from './Board';
 import {ColorPicker} from './ColorPicker';
 import {ColorUsage} from './ColorUsage';
 import {Modal} from './Modal';
+import {DimensionField} from './DimensionField';
 
-function IconButton({label, children, onClick, disabled = false, active = false}: {label: string; children: ReactNode; onClick: () => void; disabled?: boolean; active?: boolean}) {
-  return <button className={`icon-button ${active ? 'active' : ''}`} title={label} aria-label={label} aria-pressed={active || undefined} disabled={disabled} onClick={onClick}>{children}</button>;
+function IconButton({label, children, onClick, disabled = false, active = false, expanded, controls}: {label: string; children: ReactNode; onClick: () => void; disabled?: boolean; active?: boolean; expanded?: boolean; controls?: string}) {
+  return <button className={`icon-button ${active ? 'active' : ''}`} title={label} aria-label={label} aria-pressed={active || undefined} aria-expanded={expanded} aria-controls={controls} disabled={disabled} onClick={onClick}>{children}</button>;
 }
 function Preview({snapshot}: {snapshot: Snapshot}) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -25,8 +26,8 @@ function Preview({snapshot}: {snapshot: Snapshot}) {
   return <canvas ref={ref} width={80} height={80} className="work-preview" aria-label="作品缩略图"/>;
 }
 const tools: {id: Tool; label: string; icon: typeof Pencil}[] = [
-  {id: 'paint', label: '画笔', icon: Pencil}, {id: 'erase', label: '橡皮擦', icon: Eraser},
-  {id: 'fill', label: '油漆桶', icon: PaintBucket}, {id: 'pick', label: '画布取色', icon: Eye}, {id: 'pan', label: '平移', icon: Hand},
+  {id: 'pan', label: '移动', icon: Move}, {id: 'paint', label: '画笔', icon: Pencil}, {id: 'erase', label: '橡皮擦', icon: Eraser},
+  {id: 'pick', label: '画布取色', icon: Eye},
   {id: 'select', label: '选区', icon: Scan},
 ];
 
@@ -39,8 +40,11 @@ export default function App() {
   const [paletteView, setPaletteView] = useState<'palette' | 'usage'>('palette');
   const [beadMode, setBeadMode] = useState(false), [beadFilter, setBeadFilter] = useState<string | null>(null);
   const [openInBeadMode, setOpenInBeadMode] = useState(false);
-  const [zoom, setZoom] = useState(100), [modal, setModal] = useState<'new' | 'save' | 'library' | 'auth' | 'export' | 'settings' | 'picker' | null>(null);
+  const [zoom, setZoom] = useState(100), [modal, setModal] = useState<'new' | 'resize' | 'save' | 'library' | 'auth' | 'export' | 'settings' | 'picker' | 'success' | null>(null);
   const [eraserSize, setEraserSize] = useState(1), [gridSettings, setGridSettings] = useState<GridSettings>(readGridSettings);
+  const [menu, setMenu] = useState<'actions' | 'brush' | 'eraser' | null>(null), [brushMode, setBrushMode] = useState<'paint' | 'fill'>('paint');
+  const eraserTool = useRef<HTMLDivElement>(null), brushTool = useRef<HTMLDivElement>(null), actionsTool = useRef<HTMLDivElement>(null);
+  const [success, setSuccess] = useState<{title: string; message: string; returnTo: 'export' | null} | null>(null);
   const [busy, setBusy] = useState(''), [notice, setNotice] = useState(''), [failure, setFailure] = useState('');
   const [user, setUser] = useState<User | null>(null), [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [saveAfterAuth, setSaveAfterAuth] = useState(false), [cloudStatus, setCloudStatus] = useState('');
@@ -50,17 +54,31 @@ export default function App() {
   const [exportGrid, setExportGrid] = useState(true), [exportURL, setExportURL] = useState('');
   const [exportStatistics, setExportStatistics] = useState(true);
   const [exportSelection, setExportSelection] = useState(false);
-  const [newSize, setNewSize] = useState(32), [pendingName, setPendingName] = useState('未命名拼豆图');
+  const [newSize, setNewSize] = useState({width: '32', height: '32'}), [resizeSize, setResizeSize] = useState({width: '32', height: '32'});
+  const [pendingName, setPendingName] = useState('未命名拼豆图');
   const [pwaUpdate, setPwaUpdate] = useState(false);
   const [offlineReady, setOfflineReady] = useState(() => !!navigator.serviceWorker?.controller);
   const [paletteVersion, paletteChanged] = useState(0);
   const statistics = useMemo(() => colorStatistics(workspace.editor.snapshot()), [workspace.editor, workspace.version, paletteVersion]);
+  const selectionHasColors = !!selection && [...workspace.editor.cells.keys()].some(key => {
+    const x = key % workspace.editor.width, y = Math.floor(key / workspace.editor.width);
+    return x >= selection.x && x < selection.x + selection.width && y >= selection.y && y < selection.y + selection.height;
+  });
   const visibleFilter = beadFilter && statistics.some(item => item.code === beadFilter) ? beadFilter : null;
   const currentHex = colorHex(color), currentLabel = displayColorCode(color);
   const mobileLabel = beadMode ? visibleFilter ? displayColorCode(visibleFilter) : '全部颜色' : currentLabel;
   const mobileHex = beadMode ? visibleFilter ? colorHex(visibleFilter) : '#E8ECEA' : currentHex;
-  useEffect(() => { setSelection(null); setExportSelection(false); }, [workspace.editor]);
+  useEffect(() => { setSelection(null); setExportSelection(false); }, [workspace.editor, workspace.editor.width, workspace.editor.height]);
   useEffect(() => { saveGridSettings(gridSettings); }, [gridSettings]);
+  useEffect(() => { if (modal || paletteOpen) setMenu(null); }, [modal, paletteOpen]);
+  useEffect(() => {
+    if (!menu) return;
+    const active = menu === 'actions' ? actionsTool : menu === 'brush' ? brushTool : eraserTool;
+    const outside = (event: PointerEvent) => { if (!active.current?.contains(event.target as Node)) setMenu(null); };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMenu(null); active.current?.querySelector('button')?.focus(); } };
+    document.addEventListener('pointerdown', outside); document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, [menu]);
   useEffect(() => { request<{user: User}>('/me').then(r => setUser(r.user)).catch(() => {}); }, []);
   useEffect(() => { if (!workspace.ready) return; request<{items: Color[]}>('/colors').then(async data => {
     configureColors(data.items); paletteChanged(v => v + 1); await cachePalette(colors);
@@ -83,9 +101,14 @@ export default function App() {
     if (beadMode) { if (statistics.some(item => item.code === code)) setBeadFilter(code); return; }
     setColor(code); setRecent(r => [code, ...r.filter(c => c !== code)].slice(0, 12)); if (tool === 'pick') setTool('paint');
   }
-  function switchMode(value: boolean) { setBeadMode(value); setBeadFilter(null); if (value) { setPaletteView('usage'); setSelection(null); } }
+  function switchMode(value: boolean) { setBeadMode(value); setBeadFilter(null); setMenu(null); if (value) { setPaletteView('usage'); setSelection(null); } }
   function history(redo = false) { if (redo ? workspace.editor.redo() : workspace.editor.undo()) { setSelection(null); workspace.changed(); } }
-  function chooseTool(value: Tool) { setTool(value); setPaletteOpen(false); }
+  function chooseTool(value: Tool) {
+    setTool(value === 'paint' ? brushMode : value); setPaletteOpen(false);
+    const next = value === 'erase' ? 'eraser' : value === 'paint' ? 'brush' : null;
+    setMenu(next && menu !== next ? next : null);
+  }
+  function complete(title: string, message: string, returnTo: 'export' | null = null) { setSuccess({title, message, returnTo}); setMenu(null); setModal('success'); }
   function nativePickerBackup() { saveRecovery(workspace.current()); void workspace.flush().catch(() => {}); }
   function openPicker() {
     void run('保存草稿', async () => {
@@ -104,7 +127,7 @@ export default function App() {
     try { await workspace.flush(); return true; }
     catch { return window.confirm('临时保存失败。继续操作可能丢失当前修改，是否继续？'); }
   }
-  function openModal(value: typeof modal) { setFailure(''); setModal(value); }
+  function openModal(value: typeof modal) { setFailure(''); setMenu(null); setModal(value); }
   async function bindCloud(ref: CloudRef) {
     const latest = workspace.current(); latest.cloudRefs[ref.userId] = ref; workspace.metadata(latest); await workspace.flush();
   }
@@ -133,7 +156,7 @@ export default function App() {
         saved = await request<CloudWork>(`/works/${ref.id}`, {method: 'PUT', body: workBody(local.document, baseRevision ?? ref.revision)});
       }
       await bindCloud({...ref, id: saved.id, revision: saved.revision, pending: undefined, savedContent: content(cloudDocument(saved))});
-      setCloudStatus('已保存到云端'); setNotice('已保存到云端'); setModal(null); setConflict(null);
+      setCloudStatus('已保存到云端'); complete('保存成功', '作品已保存到云端。'); setConflict(null);
     } catch (e) {
       setCloudStatus('云端保存失败');
       const ref = workspace.current().cloudRefs[account.id];
@@ -192,14 +215,22 @@ export default function App() {
       <div className="document-heading"><button className="document-name" title="重命名作品" disabled={!!busy || !workspace.ready} onClick={() => {
         const name = window.prompt('作品名称', workspace.work.document.name); if (name === null) return;
         try { const w = workspace.current(); w.document.name = validateName(name); workspace.metadata(w); workspace.changed(); } catch (e) { setFailure((e as Error).message); }
-      }}>{workspace.work.document.name}<Pencil size={13}/></button><span className={`save-status ${workspace.error ? 'bad' : ''}`}><span className="status-dot"/>{workspace.status}</span></div>
+      }}>{workspace.work.document.name}<Pencil size={13}/></button><div className="document-meta"><span className="board-dimensions">{workspace.editor.width} × {workspace.editor.height}</span><span className={`save-status ${workspace.error ? 'bad' : ''}`}><span className="status-dot"/>{workspace.status}</span></div></div>
       </div>
-      <div className="header-actions" role="group" aria-label="作品操作">
-        <IconButton label="撤回" disabled={beadMode || !workspace.editor.canUndo} onClick={() => history()}><Undo2 size={20}/></IconButton>
-        <IconButton label="反撤回" disabled={beadMode || !workspace.editor.canRedo} onClick={() => history(true)}><Redo2 size={20}/></IconButton>
-        <span className="header-divider"/>
-        <button className="command secondary save-button" aria-label="保存" title="保存" disabled={!!busy || !workspace.ready} onClick={() => openModal('save')}><Cloud size={18}/><span>保存</span><ChevronDown size={14}/></button>
-        <button className="command primary export-button" aria-label="导出" title="导出" disabled={!!busy || !workspace.ready} onClick={() => { openModal('export'); }}><ImageDown size={18}/><span>导出</span></button>
+      <div className="header-actions" role="group" aria-label="作品操作" ref={actionsTool}>
+        <button className="command secondary actions-trigger" aria-label="画布操作" title="画布操作" aria-expanded={menu === 'actions'} aria-controls="canvas-actions-menu" onClick={() => { setPaletteOpen(false); setMenu(menu === 'actions' ? null : 'actions'); }}><MoreHorizontal size={22}/><span>{beadMode ? '拼豆模式' : '绘图模式'}</span><ChevronDown size={14}/></button>
+        <div id="canvas-actions-menu" className="actions-menu" role="group" aria-label="画布操作菜单" hidden={menu !== 'actions'}>
+          <div className="segmented mode-switch" aria-label="画布模式"><button className={!beadMode ? 'selected' : ''} aria-pressed={!beadMode} disabled={!workspace.ready} onClick={() => switchMode(false)}><Pencil size={16}/>绘图模式</button><button className={beadMode ? 'selected' : ''} aria-pressed={beadMode} disabled={!workspace.ready} onClick={() => switchMode(true)}><Grid2X2 size={16}/>拼豆模式</button></div>
+          <div className="menu-commands">
+            <button disabled={beadMode || !workspace.editor.canUndo} aria-label="撤回" onClick={() => { history(); setMenu(null); }}><Undo2 size={18}/>撤回</button>
+            <button disabled={beadMode || !workspace.editor.canRedo} aria-label="反撤回" onClick={() => { history(true); setMenu(null); }}><Redo2 size={18}/>反撤回</button>
+            <button aria-label="查看用色统计" onClick={() => { setMenu(null); setPaletteView('usage'); setPaletteOpen(true); }}><ChartColumn size={18}/>用色统计</button>
+            <button aria-label="清空画布" disabled={beadMode || !workspace.ready || !workspace.editor.cells.size} onClick={() => { if (window.confirm('清空当前画布？此操作可以撤回。') && workspace.editor.clear()) { setSelection(null); workspace.changed(); } setMenu(null); }}><Trash2 size={18}/>清空画布</button>
+            <button aria-label="水平镜像" disabled={beadMode || !workspace.ready || !workspace.editor.cells.size} onClick={() => { if (workspace.editor.mirror('horizontal')) workspace.changed(); setMenu(null); }}><FlipHorizontal2 size={18}/>左右镜像</button>
+            <button aria-label="垂直镜像" disabled={beadMode || !workspace.ready || !workspace.editor.cells.size} onClick={() => { if (workspace.editor.mirror('vertical')) workspace.changed(); setMenu(null); }}><FlipVertical2 size={18}/>上下镜像</button>
+          </div>
+          <div className="menu-files"><button className="command secondary save-button" aria-label="保存" disabled={!!busy || !workspace.ready} onClick={() => openModal('save')}><Cloud size={18}/>保存</button><button className="command primary export-button" aria-label="导出" disabled={!!busy || !workspace.ready} onClick={() => openModal('export')}><ImageDown size={18}/>导出</button></div>
+        </div>
       </div>
       <div className="header-library">
         <IconButton label="新建画布" disabled={!!busy || !workspace.ready} onClick={() => { setPendingName('未命名拼豆图'); openModal('new'); }}><Plus size={20}/></IconButton>
@@ -211,50 +242,42 @@ export default function App() {
     {pwaUpdate && <div className="update-banner"><span>新版本已准备好</span><button onClick={() => void run('更新', async () => { await workspace.flush(); window.dispatchEvent(new Event('pindou-install-update')); })}>更新</button></div>}
     <div className="editor-layout">
       <main className="canvas-workspace">
-        <div className="workspace-topline"><span><Grid2X2 size={14}/>{workspace.editor.width} × {workspace.editor.height}<span className="subtle">格</span></span><div className="board-options">
-          {!beadMode && tool === 'erase' ? <label className="eraser-size">尺寸<select aria-label="橡皮擦尺寸" value={eraserSize} onChange={e => setEraserSize(Number(e.target.value))}>{[1, 2, 4, 8].map(n => <option key={n} value={n}>{n} × {n}</option>)}</select></label> : <span className="subtle">{beadMode ? visibleFilter ? displayColorCode(visibleFilter) : '全部颜色' : tools.find(t => t.id === tool)!.label}</span>}
-          </div></div>
-        <div className="canvas-actions"><div className="segmented mode-switch" aria-label="画布模式"><button className={!beadMode ? 'selected' : ''} aria-pressed={!beadMode} disabled={!workspace.ready} onClick={() => switchMode(false)}><Pencil size={15}/>绘图模式</button><button className={beadMode ? 'selected' : ''} aria-pressed={beadMode} disabled={!workspace.ready} onClick={() => switchMode(true)}><Grid2X2 size={15}/>拼豆模式</button></div><div className="canvas-commands">
-          <IconButton label="查看用色统计" active={paletteView === 'usage'} onClick={() => { setPaletteView('usage'); setPaletteOpen(true); }}><ChartColumn size={18}/></IconButton>
-          <IconButton label="水平镜像" disabled={beadMode || !workspace.ready || !workspace.editor.cells.size} onClick={() => { if (workspace.editor.mirror('horizontal')) workspace.changed(); }}><FlipHorizontal2 size={18}/></IconButton>
-          <IconButton label="垂直镜像" disabled={beadMode || !workspace.ready || !workspace.editor.cells.size} onClick={() => { if (workspace.editor.mirror('vertical')) workspace.changed(); }}><FlipVertical2 size={18}/></IconButton>
-          <IconButton label="清空画布" disabled={beadMode || !workspace.ready || !workspace.editor.cells.size} onClick={() => { if (window.confirm('清空当前画布？此操作可以撤回。') && workspace.editor.clear()) { setSelection(null); workspace.changed(); } }}><Trash2 size={18}/></IconButton>
-        </div></div>
-        {selection && !beadMode && <div className="selection-bar" data-testid="selection-size"><span>选区 {selection.width} × {selection.height}</span><IconButton label="导出选区" onClick={() => { setExportSelection(true); openModal('export'); }}><ImageDown size={18}/></IconButton><IconButton label="取消选区" onClick={() => setSelection(null)}><X size={18}/></IconButton></div>}
+        {selection && !beadMode && <div className="selection-bar" data-testid="selection-size"><span>选区 {selection.width} × {selection.height}</span><IconButton label="导出选区" onClick={() => { setExportSelection(true); openModal('export'); }}><ImageDown size={18}/></IconButton><IconButton label="删除选区颜色" disabled={!workspace.ready || !selectionHasColors} onClick={() => { if (window.confirm('删除选区内颜色？此操作可以撤回。') && workspace.editor.clearRegion(selection)) workspace.changed(); }}><Trash2 size={18}/></IconButton><IconButton label="取消选区" onClick={() => setSelection(null)}><X size={18}/></IconButton></div>}
         {beadMode && <div className="bead-filter-strip" aria-label="拼豆颜色筛选"><button className={!visibleFilter ? 'selected' : ''} aria-pressed={!visibleFilter} onClick={() => setBeadFilter(null)}>全部颜色</button>{statistics.map(item => <button key={item.code} className={visibleFilter === item.code ? 'selected' : ''} aria-label={`筛选颜色 ${item.label}`} aria-pressed={visibleFilter === item.code} title={`${item.label} · ${item.count} 颗`} onClick={() => setBeadFilter(item.code)}><span style={{background: item.hex}}/><strong>{item.label}</strong><small>{item.count}</small></button>)}</div>}
         {workspace.ready ? <Board key={workspace.work.localKey} ref={board} editor={workspace.editor} tool={tool} beadMode={beadMode} filter={visibleFilter} selection={selection} onSelection={setSelection} color={color} eraserSize={eraserSize} settings={gridSettings} version={workspace.version} onChange={workspace.changed} onPick={pick} onZoom={setZoom}/> : <div className="loading-board"><LoaderCircle className="spin" size={24}/></div>}
-        <footer className="workspace-footer"><span className="bead-count">{workspace.editor.cells.size.toLocaleString()} 颗拼豆</span><div className="zoom-controls">
-          <IconButton label="缩小" onClick={() => board.current?.zoom(.8)}><ZoomOut size={17}/></IconButton>
-          <button className="zoom-value" title="100% 显示" onClick={() => board.current?.actual()}>{zoom}%</button>
-          <IconButton label="放大" onClick={() => board.current?.zoom(1.25)}><ZoomIn size={17}/></IconButton><span className="zoom-divider"/>
-          <IconButton label="适配画布" onClick={() => board.current?.fit()}><Maximize size={17}/></IconButton>
-        </div><span className="cloud-indicator">{cloudDirty ? '有修改待上传' : cloudStatus || '本地作品'}</span>{offlineReady && <span className="offline-ready"><Check size={13}/>离线可用</span>}</footer>
+        <footer className="workspace-footer"><span className="bead-count">{workspace.editor.cells.size.toLocaleString()} 颗拼豆</span><div className="recent-colors" aria-label="最近使用颜色">{recent.map(code => <button key={code} className={`recent-swatch ${code === color ? 'selected' : ''}`} title={displayColorCode(code)} aria-label={`选择颜色 ${displayColorCode(code)}`} aria-pressed={code === color} onClick={() => pick(code)} style={{background: colorHex(code)}}/>)}</div>
+          <button className={`dock-color ${paletteOpen ? 'active' : ''}`} aria-label="打开色板" title="打开色板" aria-expanded={paletteOpen} aria-controls="palette-panel" onClick={() => { setMenu(null); if (!paletteOpen) setPaletteView(beadMode ? 'usage' : 'palette'); setPaletteOpen(v => !v); }}><span className="dock-swatch" style={{background: mobileHex}}/><strong>{mobileLabel}</strong><Palette size={18}/></button>
+          <span className="cloud-indicator">{cloudDirty ? '有修改待上传' : cloudStatus || '本地作品'}</span>{offlineReady && <span className="offline-ready"><Check size={13}/>离线可用</span>}</footer>
       </main>
       <aside id="palette-panel" className={`palette-panel ${paletteOpen ? 'is-open' : 'is-collapsed'} ${paletteView === 'usage' ? 'usage-view' : ''}`} aria-label="MARD291 色板">
-        <div className="palette-heading"><h2>MARD<span>291</span></h2><span className="subtle">色板</span><IconButton label="收起色板" onClick={() => setPaletteOpen(false)}><X size={18}/></IconButton></div>
-        <div className="segmented palette-tabs"><button className={paletteView === 'palette' ? 'selected' : ''} aria-pressed={paletteView === 'palette'} disabled={beadMode} onClick={() => setPaletteView('palette')}><Palette size={16}/>色板</button><button className={paletteView === 'usage' ? 'selected' : ''} aria-pressed={paletteView === 'usage'} onClick={() => setPaletteView('usage')}><ChartColumn size={16}/>用色统计</button></div>
-        {paletteView === 'palette' ? <>
-        <div className="selected-color"><span className="large-swatch" style={{background: currentHex}}/><div><strong>{currentLabel}</strong><span>{currentHex}</span></div><Check size={17}/></div>
-        <div className="recent-colors"><span className="section-label">最近使用</span><div>{recent.map(code => <button key={code} className={`recent-swatch ${code === color ? 'selected' : ''}`} title={displayColorCode(code)} aria-label={`选择颜色 ${displayColorCode(code)}`} onClick={() => pick(code)} style={{background: colorHex(code)}}/>)}</div></div>
+        <div className="palette-toolbar"><div className="segmented palette-tabs"><button className={paletteView === 'palette' ? 'selected' : ''} aria-pressed={paletteView === 'palette'} disabled={beadMode} onClick={() => setPaletteView('palette')}><Palette size={16}/>色板</button><button className={paletteView === 'usage' ? 'selected' : ''} aria-pressed={paletteView === 'usage'} onClick={() => setPaletteView('usage')}><ChartColumn size={16}/>用色统计</button></div>
+        {paletteView === 'palette' && <>
         <label className="search-box"><Search size={17}/><input aria-label="搜索色号" placeholder="搜索色号 / 名称" value={query} onChange={e => setQuery(e.target.value)}/>{query && <button aria-label="清除搜索" onClick={() => setQuery('')}><X size={14}/></button>}</label>
         <div className="family-filter"><label htmlFor="color-family">色系</label><select id="color-family" value={family} onChange={e => setFamily(e.target.value)}>{groups.map(group => <option key={group}>{group}</option>)}</select><span>{filteredColors.length} 色</span></div>
-        <div className="color-grid">{colorGroups.map(group => <section key={group.name} className="color-family" aria-label={`${group.name} 系列`}>
+        </>}<IconButton label="收起色板" onClick={() => setPaletteOpen(false)}><X size={18}/></IconButton></div>
+        {paletteView === 'palette' ? <div className="color-grid">{colorGroups.map(group => <section key={group.name} className="color-family" aria-label={`${group.name} 系列`}>
           <h3>{group.name}<small>{group.items.length} 色</small></h3>
           <div className="color-family-grid">{group.items.map(c => <button key={c.code} className={`color-tile ${c.code === color ? 'selected' : ''}`} title={`${displayColorCode(c.code)} · ${c.hex}`} aria-label={`颜色 ${displayColorCode(c.code)}`} aria-pressed={c.code === color} onClick={() => pick(c.code)}>
           <span style={{background: c.hex}}>{c.code === color && <Check size={15} color={parseInt(c.hex.slice(1, 3), 16) + parseInt(c.hex.slice(3, 5), 16) + parseInt(c.hex.slice(5), 16) > 390 ? '#173d30' : '#fff'}/>}</span><small>{displayColorCode(c.code)}</small>
-        </button>)}</div></section>)}{!filteredColors.length && <div className="empty-colors">没有匹配的色号</div>}</div>
-        <div className="palette-bottom"><span style={{background: currentHex}}/><strong>{currentLabel}</strong><small>{currentHex}</small></div>
-        </> : <ColorUsage items={statistics} selected={beadMode ? visibleFilter : color} beadMode={beadMode}
+        </button>)}</div></section>)}{!filteredColors.length && <div className="empty-colors">没有匹配的色号</div>}</div> : <ColorUsage items={statistics} selected={beadMode ? visibleFilter : color} beadMode={beadMode}
           onSelect={code => { if (beadMode) setBeadFilter(code); else if (code) pick(code); }}/>}
       </aside>
     </div>
     <nav className="bottom-dock" aria-label="绘图工具">
-      <div className="dock-tools">{tools.map(({id, label, icon: Icon}) => <IconButton key={id} label={label} active={(beadMode ? 'pan' : tool) === id} disabled={!workspace.ready || (beadMode && id !== 'pan')} onClick={() => chooseTool(id)}><Icon size={22}/><span>{label}</span></IconButton>)}
+      <div className="dock-tools">{tools.map(({id, label, icon: Icon}) => id === 'erase' ? <div className="dock-eraser" ref={eraserTool} key={id}>
+        <IconButton label={label} active={!beadMode && tool === id} disabled={!workspace.ready || beadMode} expanded={menu === 'eraser'} controls="eraser-sizes" onClick={() => chooseTool(id)}><Icon size={22}/><span>{label}</span><small className="eraser-size-badge">{eraserSize}</small></IconButton>
+        {menu === 'eraser' && <div id="eraser-sizes" className="eraser-sizes" role="group" aria-label="橡皮擦尺寸">{[1, 2, 4, 8].map(n => <button key={n} aria-label={`橡皮擦尺寸 ${n} × ${n}`} aria-pressed={eraserSize === n} className={eraserSize === n ? 'selected' : ''} onClick={() => { setEraserSize(n); setMenu(null); eraserTool.current?.querySelector('button')?.focus(); }}>{n} × {n}</button>)}</div>}
+      </div> : id === 'paint' ? <div className="dock-brush" ref={brushTool} key={id}>
+        <IconButton label="画笔" active={!beadMode && (tool === 'paint' || tool === 'fill')} disabled={!workspace.ready || beadMode} expanded={menu === 'brush'} controls="brush-modes" onClick={() => chooseTool(id)}>{tool === 'fill' ? <PaintBucket size={22}/> : <Pencil size={22}/>}<span>{tool === 'fill' ? '填色' : '画笔'}</span><ChevronDown size={10} className="brush-chevron"/></IconButton>
+        {menu === 'brush' && <div id="brush-modes" className="brush-modes" role="group" aria-label="画笔方式">{(['paint', 'fill'] as const).map(value => <button key={value} aria-label={value === 'paint' ? '单格画笔' : '填色'} aria-pressed={brushMode === value} className={brushMode === value ? 'selected' : ''} onClick={() => { setBrushMode(value); setTool(value); setMenu(null); brushTool.current?.querySelector('button')?.focus(); }}>{value === 'paint' ? <Pencil size={18}/> : <PaintBucket size={18}/>}<span>{value === 'paint' ? '画笔' : '填色'}</span></button>)}</div>}
+      </div> : <IconButton key={id} label={label} active={(beadMode ? 'pan' : tool) === id} disabled={!workspace.ready || (beadMode && id !== 'pan')} onClick={() => chooseTool(id)}><Icon size={22}/><span>{label}</span></IconButton>)}
         <IconButton label="外部取色" disabled={beadMode || !!busy || !workspace.ready} onClick={openPicker}><Pipette size={22}/><span>外部取色</span></IconButton>
         <IconButton label="画布设置" onClick={() => openModal('settings')}><Grid2X2 size={22}/><span>画布</span></IconButton>
       </div>
       <span className="dock-divider"/>
-      <button className={`dock-color ${paletteOpen ? 'active' : ''}`} aria-label="打开色板" title="打开色板" aria-expanded={paletteOpen} aria-controls="palette-panel" onClick={() => { if (!paletteOpen) setPaletteView(beadMode ? 'usage' : 'palette'); setPaletteOpen(v => !v); }}><span className="dock-swatch" style={{background: mobileHex}}/><strong>{mobileLabel}</strong><Palette size={18}/></button>
+      <div className="zoom-controls">
+        <IconButton label="缩小" onClick={() => board.current?.zoom(.8)}><ZoomOut size={17}/></IconButton><button className="zoom-value" title="100% 显示" onClick={() => board.current?.actual()}>{zoom}%</button><IconButton label="放大" onClick={() => board.current?.zoom(1.25)}><ZoomIn size={17}/></IconButton><span className="zoom-divider"/><IconButton label="适配画布" onClick={() => board.current?.fit()}><Maximize size={17}/></IconButton>
+      </div>
     </nav>
     {paletteOpen && <button className="palette-backdrop" aria-label="收起色板" onClick={() => setPaletteOpen(false)}/>}
     <input ref={file} className="hidden-input" type="file" aria-label="打开作品文件" accept=".pindou,application/json" onChange={e => { const selected = e.target.files?.[0]; e.target.value = ''; if (selected) void run('打开文件', () => importFile(selected)); }}/>
@@ -263,6 +286,7 @@ export default function App() {
 
     {modal === 'picker' && <Modal title="外部取色" onClose={() => setModal(null)}><ColorPicker initial={currentHex} onPrepareNativePicker={nativePickerBackup} onApply={code => { pick(code); setTool('paint'); setModal(null); }}/></Modal>}
     {modal === 'settings' && <Modal title="画布设置" onClose={() => setModal(null)}>
+      <button className="command secondary full" disabled={beadMode || !workspace.ready} onClick={() => { setResizeSize({width: String(workspace.editor.width), height: String(workspace.editor.height)}); openModal('resize'); }}><Maximize size={18}/>调整画布尺寸</button>
       <label className="setting-row">辅助线间隔<select aria-label="辅助线间隔" value={gridSettings.guideEvery} onChange={e => setGridSettings(s => ({...s, guideEvery: Number(e.target.value) as 5 | 10}))}><option value={5}>每 5 格</option><option value={10}>每 10 格</option></select></label>
       {(['grid', 'guide'] as const).map(kind => <div className="line-settings" key={kind}><h3>{kind === 'grid' ? '普通网格线' : '辅助线'}</h3>
         <label className="setting-row">线型<select aria-label={`${kind === 'grid' ? '普通网格线' : '辅助线'}线型`} value={gridSettings[`${kind}Style`]} onChange={e => setGridSettings(s => ({...s, [`${kind}Style`]: e.target.value}))}><option value="solid">实线</option><option value="dashed">虚线</option></select></label>
@@ -274,15 +298,27 @@ export default function App() {
       <div className="modal-actions"><button className="command primary full" onClick={() => setModal(null)}><Check size={18}/>完成</button></div>
     </Modal>}
 
+    {modal === 'resize' && <Modal title="调整画布尺寸" onClose={() => setModal(null)}><form onSubmit={event => { event.preventDefault(); void run('调整画布', async () => {
+      const width = Number(resizeSize.width), height = Number(resizeSize.height), editor = workspace.editor;
+      const dx = Math.floor((width - editor.width) / 2), dy = Math.floor((height - editor.height) / 2);
+      const cropped = editor.snapshot().cells.filter(cell => cell.x + dx < 0 || cell.x + dx >= width || cell.y + dy < 0 || cell.y + dy >= height).length;
+      if (cropped && !window.confirm(`缩小画布将裁掉 ${cropped} 颗拼豆，是否继续？此操作可以撤回。`)) return;
+      if (editor.resize(width, height)) { setSelection(null); workspace.changed(); }
+      setModal(null); setNotice('画布尺寸已调整');
+    }); }}>
+      <div className="field-pair"><DimensionField name="width" label="宽度" value={resizeSize.width} onChange={width => setResizeSize(size => ({...size, width}))}/><span>×</span><DimensionField name="height" label="高度" value={resizeSize.height} onChange={height => setResizeSize(size => ({...size, height}))}/></div>
+      <ErrorText text={failure}/><div className="modal-actions"><button type="button" className="command secondary" onClick={() => setModal(null)}>取消</button><button className="command primary" disabled={!!busy}><Check size={18}/>应用尺寸</button></div>
+    </form></Modal>}
+
     {modal === 'new' && <Modal title="新建画布" onClose={() => setModal(null)}><form onSubmit={e => { e.preventDefault(); const data = new FormData(e.currentTarget); void run('新建画布', async () => {
       const document = blank(pendingName, Number(data.get('width')), Number(data.get('height'))); if (await protect()) { workspace.create(document); switchMode(false); setCloudStatus(''); setModal(null); }
     }); }}><label className="field">作品名称<input value={pendingName} onChange={e => setPendingName(e.target.value)} maxLength={80} required/></label>
-      <div className="size-presets">{[16, 32, 64, 96, 128].map(n => <button type="button" key={n} className={newSize === n ? 'selected' : ''} onClick={() => setNewSize(n)}>{n} × {n}</button>)}</div>
-      <div className="field-pair"><label className="field">宽度（格）<input key={`w${newSize}`} name="width" type="number" min={1} max={200} step={1} defaultValue={newSize} required/></label><span>×</span><label className="field">高度（格）<input key={`h${newSize}`} name="height" type="number" min={1} max={200} step={1} defaultValue={newSize} required/></label></div>
+      <div className="size-presets">{[16, 32, 64, 96, 128].map(n => <button type="button" key={n} className={newSize.width === String(n) && newSize.height === String(n) ? 'selected' : ''} onClick={() => setNewSize({width: String(n), height: String(n)})}>{n} × {n}</button>)}</div>
+      <div className="field-pair"><DimensionField name="width" label="宽度" value={newSize.width} onChange={width => setNewSize(size => ({...size, width}))}/><span>×</span><DimensionField name="height" label="高度" value={newSize.height} onChange={height => setNewSize(size => ({...size, height}))}/></div>
       <ErrorText text={failure}/><div className="modal-actions"><button type="button" className="command secondary" onClick={() => setModal(null)}>取消</button><button className="command primary" disabled={!!busy}><Plus size={18}/>创建画布</button></div></form></Modal>}
 
     {modal === 'save' && <Modal title="保存作品" onClose={() => setModal(null)}>
-      <div className="save-options"><button disabled={!!busy} onClick={() => void run('下载作品', async () => { const d = workspace.current().document; await workspace.flush().catch(() => {}); downloadDocument(d); setNotice('已生成本地作品文件'); setModal(null); })}><Download size={22}/><span><strong>保存到本地</strong><small>.pindou</small></span><ArrowDownToLine size={18}/></button>
+      <div className="save-options"><button disabled={!!busy} onClick={() => void run('下载作品', async () => { const d = workspace.current().document; await workspace.flush().catch(() => {}); downloadDocument(d); complete('保存成功', '作品文件已生成，已发起下载。'); })}><Download size={22}/><span><strong>保存到本地</strong><small>.pindou</small></span><ArrowDownToLine size={18}/></button>
         <button disabled={!!busy} onClick={() => cloudSave()}><Cloud size={22}/><span><strong>保存到云端</strong><small>{user ? user.username : '登录后保存'}</small></span><ChevronDown size={18}/></button>
         {cloudRef?.id && <button disabled={!!busy} onClick={() => cloudSave(true)}><Plus size={22}/><span><strong>云端另存为</strong><small>新副本</small></span></button>}
       </div><ErrorText text={failure}/><div className="save-detail"><Check size={14}/>{workspace.status}</div>
@@ -296,9 +332,11 @@ export default function App() {
       <div className="export-spec"><span>PNG</span><span>{exportSize?.width} × {exportSize?.height} px</span></div><ErrorText text={failure}/>
       <div className="modal-actions"><button className="command primary full" disabled={!!busy} onClick={() => void run('导出图片', async () => {
         const d = workspace.current().document; await workspace.flush().catch(() => {});
-        download(await pngBlob(d, exportGrid, exportStatistics, gridSettings, exportSelection ? selection : null), `${safeFilename(d.name)}${exportSelection && selection ? '-selection' : ''}-${exportGrid ? 'grid' : 'clean'}.png`); setNotice('已生成 PNG 图纸');
+        download(await pngBlob(d, exportGrid, exportStatistics, gridSettings, exportSelection ? selection : null), `${safeFilename(d.name)}${exportSelection && selection ? '-selection' : ''}-${exportGrid ? 'grid' : 'clean'}.png`); complete('导出成功', 'PNG 图纸已生成，已发起下载。', 'export');
       })}><Download size={18}/>下载 PNG</button></div>
     </Modal>}
+
+    {modal === 'success' && success && <Modal title={success.title} onClose={() => setModal(success.returnTo)}><div className="success-message"><Check size={28}/><p>{success.message}</p></div><div className="modal-actions"><button className="command primary full" onClick={() => setModal(success.returnTo)}><Check size={18}/>完成</button></div></Modal>}
 
     {modal === 'auth' && <Modal title={user ? '我的账号' : '云端账号'} onClose={() => { setModal(null); setSaveAfterAuth(false); }}>
       {user ? <div className="account-view"><UserRound size={32}/><strong>{user.username}</strong><button className="command secondary" disabled={!!busy} onClick={() => void run('退出登录', async () => { await request('/auth/logout', {method: 'POST'}); setUser(null); setModal(null); setCloudStatus(''); setNotice('已退出登录，本地作品仍保留'); })}><LogOut size={18}/>退出登录</button></div> : <>

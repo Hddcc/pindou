@@ -4,9 +4,9 @@ import {cellColorLabels, colorHex, erasedBoundary, readableText, type Editor, ty
 type Point = {x: number; y: number};
 type View = Point & {size: number};
 export type BoardHandle = {fit: () => void; zoom: (factor: number) => void; actual: () => void};
-type Props = {editor: Editor; tool: Tool; beadMode: boolean; filter: string | null; selection: Selection | null; onSelection: (value: Selection | null) => void; color: string; eraserSize: number; settings: GridSettings; version: number; onChange: () => void; onPick: (code: string) => void; onZoom: (n: number) => void};
+type Props = {editor: Editor; tool: Tool; beadMode: boolean; filters: ReadonlySet<string>; selection: Selection | null; onSelection: (value: Selection | null) => void; color: string; eraserSize: number; settings: GridSettings; version: number; onChange: () => void; onPick: (code: string) => void; onZoom: (n: number) => void};
 
-export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool: drawingTool, beadMode, filter, selection, onSelection, color, eraserSize, settings, version, onChange, onPick, onZoom}, ref) {
+export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool: drawingTool, beadMode, filters, selection, onSelection, color, eraserSize, settings, version, onChange, onPick, onZoom}, ref) {
   const tool = beadMode ? 'pan' : drawingTool;
   const canvas = useRef<HTMLCanvasElement>(null), host = useRef<HTMLDivElement>(null);
   const view = useRef<View>({x: 0, y: 0, size: 12}), dimensions = useRef({width: 0, height: 0});
@@ -65,7 +65,7 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
     const x0 = Math.max(0, Math.floor(-v.x / v.size)), y0 = Math.max(0, Math.floor(-v.y / v.size));
     const x1 = Math.min(editor.width, Math.ceil((width - v.x) / v.size)), y1 = Math.min(editor.height, Math.ceil((height - v.y) / v.size));
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const stored = editor.get(x, y), code = beadMode && filter && stored !== filter ? undefined : stored;
+      const stored = editor.get(x, y), code = beadMode && filters.size && stored && !filters.has(stored) ? undefined : stored;
       ctx.fillStyle = code ? colorHex(code) : (x + y) % 2 ? '#F1F3F2' : '#FFFFFF';
       ctx.fillRect(v.x + x * v.size, v.y + y * v.size, v.size, v.size);
     }
@@ -93,7 +93,7 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
       const fontSize = Math.max(6, Math.min(26, v.size * .38)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `600 ${fontSize}px system-ui`;
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-        const code = editor.get(x, y); if (!code || (beadMode && filter && code !== filter)) continue;
+        const code = editor.get(x, y); if (!code || (beadMode && filters.size && !filters.has(code))) continue;
         const labels = cellColorLabels(code), labelSize = code.startsWith('#') ? Math.max(6, Math.min(26, v.size * .34)) : fontSize;
         ctx.font = `600 ${labelSize}px system-ui`; ctx.fillStyle = readableText(code);
         labels.forEach((label, index) => ctx.fillText(label, v.x + (x + .5) * v.size,
@@ -146,7 +146,7 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
       if (py < ruler || py > height - ruler) continue;
       ctx.fillText(String(y + 1), ruler / 2, py, ruler - 4); ctx.fillText(String(y + 1), width - ruler / 2, py, ruler - 4);
     }
-  }, [editor, tool, beadMode, filter, selection, eraserSize, settings, version, frame]);
+  }, [editor, tool, beadMode, filters, selection, eraserSize, settings, version, frame]);
   useEffect(() => {
     const c = canvas.current!;
     const wheel = (e: WheelEvent) => { e.preventDefault(); const r = c.getBoundingClientRect(); zoom(e.deltaY > 0 ? .9 : 1.1, {x: e.clientX - r.left, y: e.clientY - r.top}); };

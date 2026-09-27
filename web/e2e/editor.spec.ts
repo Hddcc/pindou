@@ -250,7 +250,7 @@ test('recommendations preserve original RGB and apply a chosen MARD color', asyn
   expect((await savedCells(page)).every(c => c.colorCode === '#123456')).toBe(true);
 });
 
-test('bead mode isolates used colors without editing or changing export data', async ({page}, testInfo) => {
+test('bead mode shows multiple selected colors without editing or changing export data', async ({page}, testInfo) => {
   await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
   const original = [{x: 1, y: 1, colorCode: 'H7'}, {x: 1, y: 2, colorCode: 'H7'}, {x: 2, y: 1, colorCode: 'F9'}, {x: 3, y: 1, colorCode: '#123456'}];
   await loadPattern(page, 8, 8, original, true);
@@ -261,16 +261,32 @@ test('bead mode isolates used colors without editing or changing export data', a
   expect(await sampleBoard(page, 1, 1)).toEqual([0, 0, 0, 255]);
   expect(await sampleBoard(page, 2, 1)).toEqual([241, 243, 242, 255]);
   expect(await sampleBoard(page, 3, 1)).toEqual([255, 255, 255, 255]);
+  await page.getByRole('button', {name: '筛选颜色 F09', exact: true}).click();
+  expect(await sampleBoard(page, 1, 1)).toEqual([0, 0, 0, 255]);
+  expect(await sampleBoard(page, 2, 1)).toEqual([226, 103, 122, 255]);
+  expect(await sampleBoard(page, 3, 1)).toEqual([255, 255, 255, 255]);
+  await page.getByRole('button', {name: '全部颜色', exact: true}).click();
+  await expect(page.getByRole('button', {name: '全部颜色', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  expect(await sampleBoard(page, 3, 1)).not.toEqual([255, 255, 255, 255]);
+  await page.getByRole('button', {name: '筛选颜色 H07', exact: true}).click();
+  await page.getByRole('button', {name: '筛选颜色 F09', exact: true}).click();
+  await page.getByRole('button', {name: '筛选颜色 H07', exact: true}).click();
+  expect(await sampleBoard(page, 1, 1)).toEqual([255, 255, 255, 255]);
+  expect(await sampleBoard(page, 2, 1)).toEqual([226, 103, 122, 255]);
   await expect(page.getByRole('button', {name: '画笔', exact: true, includeHidden: true})).toBeDisabled();
   await expect(page.getByRole('button', {name: '清空画布', exact: true, includeHidden: true})).toBeDisabled();
   await page.getByTestId('board').click();
   expect(await savedCells(page)).toEqual(original.sort((a, b) => a.y - b.y || a.x - b.x));
   await clickTool(page, '查看用色统计');
   await expect(page.getByTestId('usage-total')).toHaveText('3 色4 颗拼豆');
-  await page.getByRole('button', {name: '已用颜色 F09，1 颗', exact: true}).click();
+  await page.getByRole('button', {name: '已用颜色 H07，2 颗', exact: true}).click();
+  await expect(page.getByRole('button', {name: '已用颜色 H07，2 颗', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', {name: '已用颜色 F09，1 颗', exact: true})).toHaveAttribute('aria-pressed', 'true');
   await page.screenshot({path: testInfo.outputPath('used-color-statistics.png')});
   await hidePalette(page);
-  expect(await sampleBoard(page, 1, 1)).toEqual([255, 255, 255, 255]);
+  expect(await sampleBoard(page, 1, 1)).toEqual([0, 0, 0, 255]);
+  expect(await sampleBoard(page, 2, 1)).toEqual([226, 103, 122, 255]);
   await clickTool(page, '导出');
   await page.getByRole('button', {name: '透明背景', exact: true}).click();
   const pixel = await page.getByAltText('图纸导出预览').evaluate((element: HTMLImageElement) => {

@@ -38,7 +38,7 @@ export default function App() {
   const [query, setQuery] = useState(''), [family, setFamily] = useState('全部'), [paletteOpen, setPaletteOpen] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [paletteView, setPaletteView] = useState<'palette' | 'usage'>('palette');
-  const [beadMode, setBeadMode] = useState(false), [beadFilter, setBeadFilter] = useState<string | null>(null);
+  const [beadMode, setBeadMode] = useState(false), [beadFilters, setBeadFilters] = useState<Set<string>>(() => new Set());
   const [openInBeadMode, setOpenInBeadMode] = useState(false);
   const [zoom, setZoom] = useState(100), [modal, setModal] = useState<'new' | 'resize' | 'save' | 'library' | 'auth' | 'export' | 'settings' | 'picker' | 'success' | null>(null);
   const [eraserSize, setEraserSize] = useState(1), [gridSettings, setGridSettings] = useState<GridSettings>(readGridSettings);
@@ -64,10 +64,10 @@ export default function App() {
     const x = key % workspace.editor.width, y = Math.floor(key / workspace.editor.width);
     return x >= selection.x && x < selection.x + selection.width && y >= selection.y && y < selection.y + selection.height;
   });
-  const visibleFilter = beadFilter && statistics.some(item => item.code === beadFilter) ? beadFilter : null;
+  const visibleFilters = useMemo(() => new Set([...beadFilters].filter(code => statistics.some(item => item.code === code))), [beadFilters, statistics]);
   const currentHex = colorHex(color), currentLabel = displayColorCode(color);
-  const mobileLabel = beadMode ? visibleFilter ? displayColorCode(visibleFilter) : '全部颜色' : currentLabel;
-  const mobileHex = beadMode ? visibleFilter ? colorHex(visibleFilter) : '#E8ECEA' : currentHex;
+  const mobileLabel = beadMode ? visibleFilters.size === 1 ? displayColorCode([...visibleFilters][0]) : visibleFilters.size ? `${visibleFilters.size} 种颜色` : '全部颜色' : currentLabel;
+  const mobileHex = beadMode && visibleFilters.size === 1 ? colorHex([...visibleFilters][0]) : beadMode ? '#E8ECEA' : currentHex;
   useEffect(() => { setSelection(null); setExportSelection(false); }, [workspace.editor, workspace.editor.width, workspace.editor.height]);
   useEffect(() => { saveGridSettings(gridSettings); }, [gridSettings]);
   useEffect(() => { if (modal || paletteOpen) setMenu(null); }, [modal, paletteOpen]);
@@ -98,10 +98,13 @@ export default function App() {
     try { setExportURL(renderPNG(workspace.current().document.snapshot, exportGrid, exportStatistics, gridSettings, exportSelection ? selection : null).toDataURL()); } catch (e) { setFailure((e as Error).message); }
   }, [modal, exportGrid, exportStatistics, exportSelection, selection, gridSettings, workspace.work.document.updatedAt]);
   function pick(code: string) {
-    if (beadMode) { if (statistics.some(item => item.code === code)) setBeadFilter(code); return; }
+    if (beadMode) { if (statistics.some(item => item.code === code)) toggleBeadFilter(code); return; }
     setColor(code); setRecent(r => [code, ...r.filter(c => c !== code)].slice(0, 12)); if (tool === 'pick') setTool('paint');
   }
-  function switchMode(value: boolean) { setBeadMode(value); setBeadFilter(null); setMenu(null); if (value) { setPaletteView('usage'); setSelection(null); } }
+  function toggleBeadFilter(code: string) {
+    setBeadFilters(current => { const next = new Set(current); if (next.has(code)) next.delete(code); else next.add(code); return next; });
+  }
+  function switchMode(value: boolean) { setBeadMode(value); setBeadFilters(new Set()); setMenu(null); if (value) { setPaletteView('usage'); setSelection(null); } }
   function history(redo = false) { if (redo ? workspace.editor.redo() : workspace.editor.undo()) { setSelection(null); workspace.changed(); } }
   function chooseTool(value: Tool) {
     setTool(value === 'paint' ? brushMode : value); setPaletteOpen(false);
@@ -243,8 +246,8 @@ export default function App() {
     <div className="editor-layout">
       <main className="canvas-workspace">
         {selection && !beadMode && <div className="selection-bar" data-testid="selection-size"><span>选区 {selection.width} × {selection.height}</span><IconButton label="导出选区" onClick={() => { setExportSelection(true); openModal('export'); }}><ImageDown size={18}/></IconButton><IconButton label="删除选区颜色" disabled={!workspace.ready || !selectionHasColors} onClick={() => { if (window.confirm('删除选区内颜色？此操作可以撤回。') && workspace.editor.clearRegion(selection)) workspace.changed(); }}><Trash2 size={18}/></IconButton><IconButton label="取消选区" onClick={() => setSelection(null)}><X size={18}/></IconButton></div>}
-        {beadMode && <div className="bead-filter-strip" aria-label="拼豆颜色筛选"><button className={!visibleFilter ? 'selected' : ''} aria-pressed={!visibleFilter} onClick={() => setBeadFilter(null)}>全部颜色</button>{statistics.map(item => <button key={item.code} className={visibleFilter === item.code ? 'selected' : ''} aria-label={`筛选颜色 ${item.label}`} aria-pressed={visibleFilter === item.code} title={`${item.label} · ${item.count} 颗`} onClick={() => setBeadFilter(item.code)}><span style={{background: item.hex}}/><strong>{item.label}</strong><small>{item.count}</small></button>)}</div>}
-        {workspace.ready ? <Board key={workspace.work.localKey} ref={board} editor={workspace.editor} tool={tool} beadMode={beadMode} filter={visibleFilter} selection={selection} onSelection={setSelection} color={color} eraserSize={eraserSize} settings={gridSettings} version={workspace.version} onChange={workspace.changed} onPick={pick} onZoom={setZoom}/> : <div className="loading-board"><LoaderCircle className="spin" size={24}/></div>}
+        {beadMode && <div className="bead-filter-strip" aria-label="拼豆颜色筛选"><button className={!visibleFilters.size ? 'selected' : ''} aria-pressed={!visibleFilters.size} onClick={() => setBeadFilters(new Set())}>全部颜色</button>{statistics.map(item => <button key={item.code} className={visibleFilters.has(item.code) ? 'selected' : ''} aria-label={`筛选颜色 ${item.label}`} aria-pressed={visibleFilters.has(item.code)} title={`${item.label} · ${item.count} 颗`} onClick={() => toggleBeadFilter(item.code)}><span style={{background: item.hex}}/><strong>{item.label}</strong><small>{item.count}</small></button>)}</div>}
+        {workspace.ready ? <Board key={workspace.work.localKey} ref={board} editor={workspace.editor} tool={tool} beadMode={beadMode} filters={visibleFilters} selection={selection} onSelection={setSelection} color={color} eraserSize={eraserSize} settings={gridSettings} version={workspace.version} onChange={workspace.changed} onPick={pick} onZoom={setZoom}/> : <div className="loading-board"><LoaderCircle className="spin" size={24}/></div>}
         <footer className="workspace-footer"><span className="bead-count">{workspace.editor.cells.size.toLocaleString()} 颗拼豆</span><div className="recent-colors" aria-label="最近使用颜色">{recent.map(code => <button key={code} className={`recent-swatch ${code === color ? 'selected' : ''}`} title={displayColorCode(code)} aria-label={`选择颜色 ${displayColorCode(code)}`} aria-pressed={code === color} onClick={() => pick(code)} style={{background: colorHex(code)}}/>)}</div>
           <button className={`dock-color ${paletteOpen ? 'active' : ''}`} aria-label="打开色板" title="打开色板" aria-expanded={paletteOpen} aria-controls="palette-panel" onClick={() => { setMenu(null); if (!paletteOpen) setPaletteView(beadMode ? 'usage' : 'palette'); setPaletteOpen(v => !v); }}><span className="dock-swatch" style={{background: mobileHex}}/><strong>{mobileLabel}</strong><Palette size={18}/></button>
           <span className="cloud-indicator">{cloudDirty ? '有修改待上传' : cloudStatus || '本地作品'}</span>{offlineReady && <span className="offline-ready"><Check size={13}/>离线可用</span>}</footer>
@@ -259,8 +262,10 @@ export default function App() {
           <h3>{group.name}<small>{group.items.length} 色</small></h3>
           <div className="color-family-grid">{group.items.map(c => <button key={c.code} className={`color-tile ${c.code === color ? 'selected' : ''}`} title={`${displayColorCode(c.code)} · ${c.hex}`} aria-label={`颜色 ${displayColorCode(c.code)}`} aria-pressed={c.code === color} onClick={() => pick(c.code)}>
           <span style={{background: c.hex}}>{c.code === color && <Check size={15} color={parseInt(c.hex.slice(1, 3), 16) + parseInt(c.hex.slice(3, 5), 16) + parseInt(c.hex.slice(5), 16) > 390 ? '#173d30' : '#fff'}/>}</span><small>{displayColorCode(c.code)}</small>
-        </button>)}</div></section>)}{!filteredColors.length && <div className="empty-colors">没有匹配的色号</div>}</div> : <ColorUsage items={statistics} selected={beadMode ? visibleFilter : color} beadMode={beadMode}
-          onSelect={code => { if (beadMode) setBeadFilter(code); else if (code) pick(code); }}/>}
+        </button>)}</div></section>)}{!filteredColors.length && <div className="empty-colors">没有匹配的色号</div>}</div> : <ColorUsage
+          items={statistics} selected={beadMode ? visibleFilters : color} beadMode={beadMode}
+          onSelect={code => { if (beadMode) { if (code) toggleBeadFilter(code); else setBeadFilters(new Set()); } else if (code) pick(code); }}
+        />}
       </aside>
     </div>
     <nav className="bottom-dock" aria-label="绘图工具">

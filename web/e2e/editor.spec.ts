@@ -32,7 +32,7 @@ async function hidePalette(page: Page) {
 }
 
 test('picker saves the draft before opening and cancellation returns to the same board', async ({page}) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await loadPattern(page, 8, 8, []);
   await page.getByTestId('board').click();
   await clickTool(page, '外部取色');
@@ -55,7 +55,7 @@ async function sampleBoard(page: Page, x: number, y: number, width = 8, height =
 }
 
 test('touch-friendly drawing, undo, fill and reload recovery', async ({page}) => {
-  await page.goto('/');
+  await page.goto('/#/editor');
   const board = page.getByTestId('board'); await expect(board).toBeVisible();
   await expect(page.getByRole('button', {name: '新建画布', exact: true})).toBeEnabled();
   await page.getByRole('button', {name: '新建画布', exact: true}).click();
@@ -79,7 +79,7 @@ test('touch-friendly drawing, undo, fill and reload recovery', async ({page}) =>
 });
 
 test('local file round trip and transparent/grid downloads', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await page.getByRole('button', {name: '我的作品', exact: true}).click();
   await page.getByRole('button', {name: '本地打开', exact: true}).click();
   await page.getByLabel('打开作品文件', {exact: true}).setInputFiles(path.resolve('e2e/fixtures/sample.pindou'));
@@ -103,7 +103,7 @@ test('local file round trip and transparent/grid downloads', async ({page}, test
 });
 
 test('palette groups colors by family and preserves search, filters and selection', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await page.getByRole('button', {name: '打开色板', exact: true}).click();
   const palette = page.locator('.color-grid');
   const families = palette.locator('.color-family');
@@ -137,7 +137,7 @@ test('palette groups colors by family and preserves search, filters and selectio
 });
 
 test('invalid import preserves the editor', async ({page}) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await page.getByRole('button', {name: '我的作品', exact: true}).click();
   await page.getByRole('button', {name: '本地打开', exact: true}).click();
   await page.getByLabel('打开作品文件', {exact: true}).setInputFiles({name: 'bad.pindou', mimeType: 'application/json', buffer: Buffer.from('{"bad":true}')});
@@ -147,7 +147,7 @@ test('invalid import preserves the editor', async ({page}) => {
 });
 
 test('custom RGB, large eraser, grid settings and immediate reload recovery', async ({page}, testInfo) => {
-  await page.goto('/');
+  await page.goto('/#/editor');
   const board = page.getByTestId('board'); await expect(board).toBeVisible();
   await page.getByRole('button', {name: '新建画布', exact: true}).click();
   await page.getByLabel('作品名称', {exact: true}).fill('RGB 拼豆测试');
@@ -219,7 +219,7 @@ test('custom RGB, large eraser, grid settings and immediate reload recovery', as
 });
 
 test('recommendations preserve original RGB and apply a chosen MARD color', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await loadPattern(page, 8, 8, []);
   await clickTool(page, '外部取色');
   await page.getByLabel('HEX 颜色', {exact: true}).fill('#8CC9DE');
@@ -251,7 +251,7 @@ test('recommendations preserve original RGB and apply a chosen MARD color', asyn
 });
 
 test('bead mode shows multiple selected colors without editing or changing export data', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   const original = [{x: 1, y: 1, colorCode: 'H7'}, {x: 1, y: 2, colorCode: 'H7'}, {x: 2, y: 1, colorCode: 'F9'}, {x: 3, y: 1, colorCode: '#123456'}];
   await loadPattern(page, 8, 8, original, true);
   await openActions(page); await expect(page.getByRole('button', {name: '拼豆模式', exact: true})).toHaveAttribute('aria-pressed', 'true');
@@ -312,7 +312,7 @@ test('bead mode shows multiple selected colors without editing or changing expor
 });
 
 test('mirrors, clear confirmation and realtime statistics follow undo and recovery', async ({page}) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await loadPattern(page, 8, 6, [{x: 1, y: 1, colorCode: 'F9'}, {x: 2, y: 1, colorCode: 'F9'}, {x: 0, y: 5, colorCode: '#123456'}]);
   await clickTool(page, '水平镜像');
   expect(await savedCells(page)).toEqual([{x: 5, y: 1, colorCode: 'F9'}, {x: 6, y: 1, colorCode: 'F9'}, {x: 7, y: 5, colorCode: '#123456'}]);
@@ -345,7 +345,7 @@ test('cell labels scale with canvas zoom within readable limits', async ({page})
       return original.apply(this, args);
     };
   });
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await loadPattern(page, 8, 8, [{x: 1, y: 1, colorCode: 'H7'}]); await page.locator('.zoom-value').click();
   const font = () => page.evaluate(() => parseFloat(/([\d.]+)px/.exec((window as typeof window & {labelFont: string}).labelFont)![1]));
   const normal = await font();
@@ -357,7 +357,7 @@ test('cell labels scale with canvas zoom within readable limits', async ({page})
 });
 
 test('center color and cell-label visibility persist and affect canvas and PNG', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await loadPattern(page, 8, 8, [{x: 1, y: 1, colorCode: 'H7'}]);
   await page.getByRole('button', {name: '画布设置', exact: true}).click();
   await page.getByLabel('中心线颜色', {exact: true}).fill('#1a2b3c');
@@ -383,7 +383,7 @@ test('center color and cell-label visibility persist and affect canvas and PNG',
 });
 
 test('eraser outlines the full irregular stroke, replaces it and clears it on undo', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await loadPattern(page, 8, 8, [
     {x: 1, y: 1, colorCode: 'H7'}, {x: 1, y: 2, colorCode: 'H7'}, {x: 1, y: 3, colorCode: 'H7'},
     {x: 2, y: 3, colorCode: 'H7'}, {x: 3, y: 3, colorCode: 'H7'}, {x: 5, y: 5, colorCode: 'F9'},
@@ -420,7 +420,7 @@ test('eraser outlines the full irregular stroke, replaces it and clears it on un
 });
 
 test('rectangle selection deletes only its colors, confirms, undoes and persists', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   const original = [{x: 1, y: 1, colorCode: 'H7'}, {x: 2, y: 2, colorCode: '#123456'}, {x: 6, y: 6, colorCode: 'F9'}];
   await loadPattern(page, 8, 8, original); await page.locator('.zoom-value').click(); await clickTool(page, '选区');
   const bounds = await page.getByTestId('board').boundingBox(); if (!bounds) throw new Error('Canvas not rendered');
@@ -444,7 +444,7 @@ test('rectangle selection deletes only its colors, confirms, undoes and persists
 });
 
 test('rectangle selection moves colors, exports a crop and undoes as one step', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   const original = [{x: 1, y: 1, colorCode: 'H7'}, {x: 2, y: 2, colorCode: '#123456'}, {x: 6, y: 6, colorCode: 'F9'}];
   await loadPattern(page, 8, 8, original);
   await page.locator('.zoom-value').click(); await clickTool(page, '选区');
@@ -478,7 +478,7 @@ test('rectangle selection moves colors, exports a crop and undoes as one step', 
 });
 
 test('four frozen rulers remain on viewport edges after zoom and pan', async ({page}, testInfo) => {
-  await page.goto('/'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
+  await page.goto('/#/editor'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
   for (let i = 0; i < 6; i++) await page.getByRole('button', {name: '放大', exact: true}).click();
   async function rulerInk() {
     return board.evaluate((element: HTMLCanvasElement) => {
@@ -503,7 +503,7 @@ test('four frozen rulers remain on viewport edges after zoom and pan', async ({p
 test('a second finger cancels selection movement without changing the saved pattern', async ({page, browserName}) => {
   test.skip(browserName !== 'chromium', 'Touch injection requires Chromium CDP');
   test.skip(!(await page.evaluate(() => navigator.maxTouchPoints > 0)), 'Touchscreen gesture test');
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   const original = [{x: 1, y: 1, colorCode: 'H7'}, {x: 2, y: 2, colorCode: '#123456'}];
   await loadPattern(page, 8, 8, original); await page.locator('.zoom-value').click(); await clickTool(page, '选区');
   const bounds = await page.getByTestId('board').boundingBox(); if (!bounds) throw new Error('Canvas not rendered');
@@ -523,7 +523,7 @@ test('a second finger cancels selection movement without changing the saved patt
 });
 
 test('eraser sizes open from the tool, remember the choice and preserve toolbar layout', async ({page}, testInfo) => {
-  await page.goto('/'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
+  await page.goto('/#/editor'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
   const dock = page.getByRole('navigation', {name: '绘图工具'}), eraser = dock.getByRole('button', {name: '橡皮擦', exact: true});
   expect(await dock.locator('.dock-tools > button, .dock-eraser > button, .dock-brush > button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label'))))
     .toEqual(['移动', '画笔', '橡皮擦', '画布取色', '选区', '外部取色', '画布设置']);
@@ -549,7 +549,7 @@ test('eraser sizes open from the tool, remember the choice and preserve toolbar 
 });
 
 test('bottom dock and centered header actions preserve full canvas width', async ({page}, testInfo) => {
-  await page.goto('/'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
+  await page.goto('/#/editor'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
   const before = await board.boundingBox(); if (!before) throw new Error('Canvas not rendered');
   const viewport = await page.evaluate(() => ({width: window.innerWidth, height: window.innerHeight}));
   expect(before.width).toBeGreaterThanOrEqual(viewport.width - 2);

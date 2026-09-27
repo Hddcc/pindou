@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode} from 'react';
-import {ArrowDownToLine, ChartColumn, Check, ChevronDown, Cloud, Download, Eraser, Eye, FlipHorizontal2, FlipVertical2, FolderOpen, Grid2X2, ImageDown, LoaderCircle, LogOut, Maximize, MoreHorizontal, Move, PaintBucket, Palette, Pencil, Pipette, Plus, Redo2, Scan, Search, Trash2, Undo2, UserRound, X, ZoomIn, ZoomOut} from 'lucide-react';
+import {ArrowDownToLine, ArrowLeft, ChartColumn, Check, ChevronDown, Cloud, Download, Eraser, Eye, FlipHorizontal2, FlipVertical2, FolderOpen, Grid2X2, ImageDown, LoaderCircle, LogOut, Maximize, MoreHorizontal, Move, PaintBucket, Palette, Pencil, Pipette, Plus, Redo2, Scan, Search, Trash2, Undo2, UserRound, X, ZoomIn, ZoomOut} from 'lucide-react';
 import {blank, colorHex, colors, colorStatistics, configureColors, displayColorCode, parseDocument, validateName, type Color, type GridSettings, type Selection, type Snapshot, type Tool} from '../domain/editor';
 import {useWorkspace} from '../application/useWorkspace';
 import {ApiError, cloudDocument, content, request, workBody, type CloudWork, type Summary, type User} from '../infrastructure/api';
@@ -31,7 +31,9 @@ const tools: {id: Tool; label: string; icon: typeof Pencil}[] = [
   {id: 'select', label: '选区', icon: Scan},
 ];
 
-export default function App() {
+type EditorModal = 'new' | 'resize' | 'save' | 'library' | 'auth' | 'export' | 'settings' | 'picker' | 'success' | null;
+
+export default function App({onExit, exitLabel = '返回首页', initialModal}: {onExit?: () => void; exitLabel?: string; initialModal?: Extract<EditorModal, 'auth'>}) {
   const workspace = useWorkspace(), board = useRef<BoardHandle>(null), file = useRef<HTMLInputElement>(null);
   const [tool, setTool] = useState<Tool>('paint'), [color, setColor] = useState('H7');
   const [recent, setRecent] = useState(['H7', 'A1', 'C5', 'F5', 'B12', 'E2']);
@@ -40,7 +42,7 @@ export default function App() {
   const [paletteView, setPaletteView] = useState<'palette' | 'usage'>('palette');
   const [beadMode, setBeadMode] = useState(false), [beadFilters, setBeadFilters] = useState<Set<string>>(() => new Set());
   const [openInBeadMode, setOpenInBeadMode] = useState(false);
-  const [zoom, setZoom] = useState(100), [modal, setModal] = useState<'new' | 'resize' | 'save' | 'library' | 'auth' | 'export' | 'settings' | 'picker' | 'success' | null>(null);
+  const [zoom, setZoom] = useState(100), [modal, setModal] = useState<EditorModal>(initialModal ?? null);
   const [eraserSize, setEraserSize] = useState(1), [gridSettings, setGridSettings] = useState<GridSettings>(readGridSettings);
   const [menu, setMenu] = useState<'actions' | 'brush' | 'eraser' | null>(null), [brushMode, setBrushMode] = useState<'paint' | 'fill'>('paint');
   const eraserTool = useRef<HTMLDivElement>(null), brushTool = useRef<HTMLDivElement>(null), actionsTool = useRef<HTMLDivElement>(null);
@@ -210,10 +212,12 @@ export default function App() {
   const cloudRef = user ? workspace.work.cloudRefs[user.id] : undefined;
   const cloudDirty = cloudRef?.id && cloudRef.savedContent !== content(workspace.current().document);
   const exportSize = modal === 'export' ? pngDimensions(workspace.current().document.snapshot, exportGrid, exportStatistics, exportSelection ? selection : null) : null;
+  function exitEditor() { if (onExit) void protect().then(allowed => { if (allowed) onExit(); }); }
 
   return <div className="app-shell">
     <header className="app-header">
       <div className="header-identity">
+      {onExit && <IconButton label={exitLabel} disabled={!!busy} onClick={exitEditor}><ArrowLeft size={20}/></IconButton>}
       <div className="brand"><img src="/icons/laopai-192.png" alt="" width={32} height={32}/><span>老派拼豆之必要</span></div>
       <div className="document-heading"><button className="document-name" title="重命名作品" disabled={!!busy || !workspace.ready} onClick={() => {
         const name = window.prompt('作品名称', workspace.work.document.name); if (name === null) return;

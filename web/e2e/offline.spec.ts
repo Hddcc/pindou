@@ -31,7 +31,7 @@ async function productionServer() {
 test('cached production app reopens offline, recovers, edits and downloads locally', async ({page, context, browserName}) => {
   const server = await productionServer();
   try {
-  await page.goto(server.url); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto(`${server.url}#/editor`); await expect(page.getByTestId('board')).toBeVisible();
   await page.getByTestId('board').click();
   await expect(page.locator('.save-status')).toHaveText(/已自动保存/);
   await expect(page.getByText('离线可用', {exact: true})).toBeVisible({timeout: 15000});
@@ -61,7 +61,7 @@ test('cached production app reopens offline, recovers, edits and downloads local
   await page.getByRole('button', {name: '关闭', exact: true}).click();
   const originalPage = page;
   page = await context.newPage(); await originalPage.close();
-  const fresh = await page.goto(server.url, {waitUntil: 'domcontentloaded'});
+  const fresh = await page.goto(`${server.url}#/editor`, {waitUntil: 'domcontentloaded'});
   expect(fresh?.fromServiceWorker()).toBe(true);
   await expect(page.getByTestId('board')).toBeVisible();
   await expect(page.locator('.bead-count')).toHaveText('2 颗拼豆');

@@ -2,7 +2,7 @@ import {expect, test} from '@playwright/test';
 
 test('new photo logo and name are used in the editor and installation metadata', async ({page}, testInfo) => {
   const name = '老派拼豆之必要';
-  await page.goto('/');
+  await page.goto('/#/editor');
   await expect(page.getByTestId('board')).toBeVisible();
   await expect(page).toHaveTitle(name);
   await expect(page.locator('.brand')).toContainText(name);

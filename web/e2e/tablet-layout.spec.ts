@@ -11,7 +11,7 @@ async function documentFile(page: Page) {
 }
 
 test('compact header menus and full-width palette fit touch screens', async ({page}, testInfo) => {
-  await page.goto('/'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
+  await page.goto('/#/editor'); const board = page.getByTestId('board'); await expect(board).toBeVisible();
   const viewport = page.viewportSize()!, header = (await page.locator('.app-header').boundingBox())!;
   expect(header.height).toBeLessThanOrEqual(76);
   await expect(page.locator('.workspace-topline, .canvas-actions, .selected-color')).toHaveCount(0);
@@ -45,7 +45,7 @@ test('compact header menus and full-width palette fit touch screens', async ({pa
 });
 
 test('brush contains fill and eraser contains touch-friendly sizes', async ({page}) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   const dock = page.getByRole('navigation', {name: '绘图工具'});
   expect(await dock.locator('.dock-tools > button, .dock-eraser > button, .dock-brush > button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label'))))
     .toEqual(['移动', '画笔', '橡皮擦', '画布取色', '选区', '外部取色', '画布设置']);
@@ -60,7 +60,7 @@ test('brush contains fill and eraser contains touch-friendly sizes', async ({pag
 });
 
 test('dimension steppers and centered resize preserve history, crop confirmation and local recovery', async ({page}, testInfo) => {
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible(); await clickTool(page, '新建画布');
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible(); await clickTool(page, '新建画布');
   await page.getByRole('button', {name: '16 × 16', exact: true}).click();
   const plus = page.getByRole('button', {name: '增加宽度', exact: true});
   if (testInfo.project.use.hasTouch) await plus.tap(); else await plus.click();

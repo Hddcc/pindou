@@ -24,6 +24,9 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
 .status-dot {width: 5px; height: 5px; border-radius: 50%; background: #50a183; flex-shrink: 0;}
 .bad .status-dot {background: #bc4c4c;}
 .header-actions {display: flex; gap: 8px; align-items: center; position: relative; justify-self: center;}
+.history-actions {height: 44px; display: flex; align-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: #fff;}
+.history-actions .icon-button {width: 44px; height: 42px; border-radius: 0;}
+.history-actions .icon-button + .icon-button {border-left: 1px solid var(--line);}
 .document-meta {display: flex; align-items: center; gap: 10px; min-width: 0;}
 .board-dimensions {font-size: 11px; color: var(--muted); white-space: nowrap;}
 .save-status {overflow: hidden; text-overflow: ellipsis;}
@@ -276,11 +279,12 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
 }
 @media (max-width: 760px), (max-height: 520px) and (max-width: 1100px) {
   .app-shell {--dock-height: 108px;}
-  .app-header {height: 64px; grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); grid-template-rows: 1fr; gap: 8px; padding: 0 10px;}
+  .app-header {height: 64px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-rows: 1fr; gap: 8px; padding: 0 10px;}
   .header-identity {grid-column: 1; grid-row: 1; gap: 8px;}
   .header-library {grid-column: 3; grid-row: 1;}
   .header-library .icon-button {width: 36px;}
   .header-actions {grid-column: 2; grid-row: 1; justify-self: center;}
+  .history-actions .icon-button {width: 40px;}
   .actions-trigger {width: 44px; padding: 0;}
   .actions-trigger > span, .actions-trigger > svg:last-child {display: none;}
   .document-meta {gap: 4px; flex-wrap: wrap;}
@@ -336,7 +340,8 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
 }
 @media (max-width: 390px) {
   .app-header {padding: 0 8px; gap: 6px;}
-  .header-actions {gap: 4px;}
+  .header-actions {gap: 6px;}
+  .history-actions .icon-button {width: 36px;}
   .color-grid {--color-columns: 6;}
 }
 @media (max-height: 520px) and (max-width: 1100px) {

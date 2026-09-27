@@ -26,8 +26,9 @@ test('compact header menus and full-width palette fit touch screens', async ({pa
   const bounds = (await menu.boundingBox())!;
   expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
   expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
-  for (const name of ['绘图模式', '拼豆模式', '撤回', '反撤回', '查看用色统计', '水平镜像', '垂直镜像', '清空画布', '保存', '导出'])
+  for (const name of ['绘图模式', '拼豆模式', '查看用色统计', '水平镜像', '垂直镜像', '清空画布', '保存', '导出'])
     await expect(menu.getByRole('button', {name, exact: true})).toBeVisible();
+  await expect(menu.getByRole('button', {name: /^(撤回|反撤回)$/})).toHaveCount(0);
   expect(await board.boundingBox()).toEqual(original);
   await page.screenshot({path: testInfo.outputPath('top-actions.png')});
   await page.keyboard.press('Escape'); await page.getByRole('button', {name: '打开色板', exact: true}).click();

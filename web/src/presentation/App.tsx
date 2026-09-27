@@ -221,12 +221,14 @@ export default function App() {
       }}>{workspace.work.document.name}<Pencil size={13}/></button><div className="document-meta"><span className="board-dimensions">{workspace.editor.width} × {workspace.editor.height}</span><span className={`save-status ${workspace.error ? 'bad' : ''}`}><span className="status-dot"/>{workspace.status}</span></div></div>
       </div>
       <div className="header-actions" role="group" aria-label="作品操作" ref={actionsTool}>
+        <div className="history-actions" role="group" aria-label="历史操作">
+          <IconButton label="撤回" disabled={beadMode || !workspace.editor.canUndo} onClick={() => history()}><Undo2 size={19}/></IconButton>
+          <IconButton label="反撤回" disabled={beadMode || !workspace.editor.canRedo} onClick={() => history(true)}><Redo2 size={19}/></IconButton>
+        </div>
         <button className="command secondary actions-trigger" aria-label="画布操作" title="画布操作" aria-expanded={menu === 'actions'} aria-controls="canvas-actions-menu" onClick={() => { setPaletteOpen(false); setMenu(menu === 'actions' ? null : 'actions'); }}><MoreHorizontal size={22}/><span>{beadMode ? '拼豆模式' : '绘图模式'}</span><ChevronDown size={14}/></button>
         <div id="canvas-actions-menu" className="actions-menu" role="group" aria-label="画布操作菜单" hidden={menu !== 'actions'}>
           <div className="segmented mode-switch" aria-label="画布模式"><button className={!beadMode ? 'selected' : ''} aria-pressed={!beadMode} disabled={!workspace.ready} onClick={() => switchMode(false)}><Pencil size={16}/>绘图模式</button><button className={beadMode ? 'selected' : ''} aria-pressed={beadMode} disabled={!workspace.ready} onClick={() => switchMode(true)}><Grid2X2 size={16}/>拼豆模式</button></div>
           <div className="menu-commands">
-            <button disabled={beadMode || !workspace.editor.canUndo} aria-label="撤回" onClick={() => { history(); setMenu(null); }}><Undo2 size={18}/>撤回</button>
-            <button disabled={beadMode || !workspace.editor.canRedo} aria-label="反撤回" onClick={() => { history(true); setMenu(null); }}><Redo2 size={18}/>反撤回</button>
             <button aria-label="查看用色统计" onClick={() => { setMenu(null); setPaletteView('usage'); setPaletteOpen(true); }}><ChartColumn size={18}/>用色统计</button>
             <button aria-label="清空画布" disabled={beadMode || !workspace.ready || !workspace.editor.cells.size} onClick={() => { if (window.confirm('清空当前画布？此操作可以撤回。') && workspace.editor.clear()) { setSelection(null); workspace.changed(); } setMenu(null); }}><Trash2 size={18}/>清空画布</button>
             <button aria-label="水平镜像" disabled={beadMode || !workspace.ready || !workspace.editor.cells.size} onClick={() => { if (workspace.editor.mirror('horizontal')) workspace.changed(); setMenu(null); }}><FlipHorizontal2 size={18}/>左右镜像</button>

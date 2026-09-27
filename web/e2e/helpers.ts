@@ -1,6 +1,6 @@
 import {expect, type Page} from '@playwright/test';
 
-const actions = new Set(['撤回', '反撤回', '保存', '导出', '查看用色统计', '水平镜像', '垂直镜像', '清空画布', '绘图模式', '拼豆模式']);
+const actions = new Set(['保存', '导出', '查看用色统计', '水平镜像', '垂直镜像', '清空画布', '绘图模式', '拼豆模式']);
 export async function openActions(page: Page) {
   if (!(await page.getByRole('group', {name: '画布操作菜单', exact: true}).isVisible()))
     await page.getByRole('button', {name: '画布操作', exact: true}).click();

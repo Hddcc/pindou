@@ -22,7 +22,7 @@ test('legacy viewport keeps both toolbars visible with Safari chrome and rotatio
     const css = (await response.text()).replace(/100dvh/g, '100legacydvh').replace(/100vh/g, '1024px');
     await route.fulfill({response, body: css});
   });
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await assertVisibleEditor(page, 900);
   await page.evaluate(() => {
     Object.assign(window.visualViewport!, {height: 700}); window.visualViewport!.dispatchEvent(new Event('resize'));
@@ -45,7 +45,7 @@ test('legacy viewport keeps both toolbars visible with Safari chrome and rotatio
 
 test('legacy browser without structuredClone can draw, save and recover', async ({page}) => {
   await page.addInitScript(() => { Object.defineProperty(window, 'structuredClone', {value: undefined, configurable: true}); });
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await page.getByTestId('board').click();
   await expect(page.locator('.save-status')).toHaveText(/已自动保存/, {timeout: 5000});
   await page.reload(); await expect(page.getByTestId('board')).toBeVisible();
@@ -57,7 +57,7 @@ test('legacy browser without native dialog can save, cancel and restore focus', 
     Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {value: undefined, configurable: true});
     Object.defineProperty(HTMLDialogElement.prototype, 'close', {value: undefined, configurable: true});
   });
-  await page.goto('/'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await openActions(page);
   const save = page.getByRole('button', {name: '保存', exact: true}); await save.focus(); await save.press('Enter');
   const modal = page.getByRole('dialog', {name: '保存作品'}); await expect(modal).toBeVisible({timeout: 5000});

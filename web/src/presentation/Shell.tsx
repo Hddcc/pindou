@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useRef, useState, type ChangeEvent} from 'react';
-import {ArrowRight, Check, Cloud, FileImage, FileUp, Grid2X2, Home, ImagePlus, LayoutGrid, List, LoaderCircle, LogOut, MoreHorizontal, Pencil, Plus, Smartphone, Trash2, UserRound, X} from 'lucide-react';
+import {ArrowRight, Cloud, FileImage, FileUp, Grid2X2, Home, ImagePlus, LayoutGrid, List, LoaderCircle, LogOut, MoreHorizontal, Pencil, Plus, Smartphone, Trash2, UserRound, X} from 'lucide-react';
 import {blank, colorHex, nearestMardColors, parseDocument, validateName, type Document, type Snapshot} from '../domain/editor';
 import {cloudDocument, content, request, type CloudWork, type Summary, type User} from '../infrastructure/api';
 import {listLocal, putLocal, removeLocal, uuid, type LocalWork} from '../infrastructure/local';
@@ -195,38 +195,34 @@ export default function Shell() {
     <main className={`shell-main shell-${route}`}>
       {route === 'home' ? <>
         {latest && <section className="home-section continue-section">
-          <SectionHeading title="最近编辑项目" meta="WORKSPACE_ID // LOCAL"/>
+          <SectionHeading title="最近编辑项目"/>
           <button className="continue-card" onClick={() => void run('正在打开作品', () => openEditor(latest))}>
             <div className="continue-preview"><WorkPreview snapshot={latest.document.snapshot} large/><span>{latest.document.snapshot.width} × {latest.document.snapshot.height}</span></div>
             <div className="continue-copy">
-              <div className="continue-tags"><span>{latest.document.snapshot.width} × {latest.document.snapshot.height} 经典方盘</span><time>{relativeTime(latest.document.updatedAt)}保存</time></div>
-              <h1>{latest.document.name}</h1>
-              <p>继续完成这张拼豆图。当前已放置 {latest.document.snapshot.cells.length.toLocaleString()} 颗拼豆，所有编辑都会自动保存在本机。</p>
+              <div className="continue-tags"><i aria-hidden="true"/><time>{relativeTime(latest.document.updatedAt)}保存</time></div>
+              <div className="continue-summary"><h1>{latest.document.name}</h1><p>当前已放置 {latest.document.snapshot.cells.length.toLocaleString()} 颗拼豆。</p></div>
               <div className="continue-metrics"><span><small>色盘使用</small><strong>{activeColorCount} <em>种色号</em></strong></span><span><small>画布规格</small><strong>{latest.document.snapshot.width} × {latest.document.snapshot.height}</strong></span></div>
             </div>
             <span className="continue-action">继续绘制<ArrowRight size={18}/></span>
           </button>
         </section>}
         <section className="home-section start-section">
-          <SectionHeading title="开始新的创作" meta="选择工坊起点，进入专注文档空间"/>
+          <SectionHeading title="开始新的创作"/>
           <div className="creation-grid">
             <article className="creation-card blank-card">
               <div className="creation-title"><span className="creation-icon"><Grid2X2/></span><small>FREE_DRAW</small></div>
-              <div><h2>空白画布</h2><p>从零构想像素图形，进入现有拼豆编辑器。</p></div>
-              <div className="board-spec"><span><strong>底板规格</strong><small>{size} × {size} 方盘</small></span><BeadMiniature/></div>
+              <div><h2>空白画布</h2></div>
               <div className="size-picker" aria-label="选择图纸尺寸">{[16, 29, 50].map(value => <button key={value} className={size === value ? 'selected' : ''} onClick={() => setSize(value)}>{value} × {value}</button>)}</div>
               <button className="creation-button secondary" onClick={createBlank}>创建空白画布<Pencil size={17}/></button>
             </article>
             <article className="creation-card image-card">
               <div className="creation-title"><span className="creation-icon"><ImagePlus/></span><small>PALETTE_MAP</small></div>
-              <div><h2>图片转拼豆</h2><p>从照片或插画提取色块，生成可继续编辑的拼豆作品。</p></div>
+              <div><h2>图片转拼豆</h2></div>
               <button className="image-drop" onClick={() => imageInput.current?.click()}><FileImage size={24}/><strong>选择或拖入本地图片</strong><small>PNG、JPG、WebP，最大 15 MB</small></button>
-              <div className="palette-note"><Check size={17}/><span><strong>色库精准映射</strong><small>自动匹配现有 MARD 色库中的最近色号</small></span></div>
               <button className="creation-button primary" onClick={() => imageInput.current?.click()}>选择本地图像转换<ImagePlus size={17}/></button>
             </article>
           </div>
         </section>
-        <div className="palette-strip"><span><span className="palette-symbol">◌</span><span><strong>工坊常备拼豆色盘</strong><small>MARD 色库已载入，编辑器可离线使用</small></span></span><BeadSwatches colors={latest ? workColors(latest.document.snapshot) : ['#C84B31', '#E5A93C', '#3A7CA5', '#8E7DBE', '#4C6455', '#152C20']}/></div>
       </> : <section className="works-section">
         <div className="works-heading"><div><p>ARCHIVE &amp; BLUEPRINTS / PEG.01 WORKBENCH</p><h1>作品库 <small>共 {activeWorks.length} 个作品</small></h1></div><div className="works-heading-actions"><button className="shell-button secondary" onClick={() => importInput.current?.click()}><FileUp size={18}/>导入图纸</button><button className="shell-button primary" onClick={createBlank}><Plus size={18}/>新建空白画布</button></div></div>
         <div className="works-toolbar"><div className="work-tabs"><button className={tab === 'local' ? 'selected' : ''} onClick={() => setTab('local')}><Smartphone size={18}/>本机 <span>{localWorks.length}</span></button><button className={tab === 'cloud' ? 'selected' : ''} onClick={() => setTab('cloud')}><Cloud size={18}/>云端同步 <span>{cloudWorks.length}</span></button></div><div className="view-toggle"><span>排序：最近编辑</span><button className={view === 'grid' ? 'selected' : ''} aria-label="网格视图" onClick={() => setView('grid')}><LayoutGrid size={18}/></button><button className={view === 'list' ? 'selected' : ''} aria-label="列表视图" onClick={() => setView('list')}><List size={18}/></button></div></div>
@@ -267,7 +263,7 @@ function ShellHeader({route, user, onNavigate, onAccount}: {route: Route; user: 
   return <header className="shell-header"><div className="shell-header-inner">
     <button className="shell-brand" onClick={() => onNavigate('home')}><img src="/shell-logo.png" alt=""/><span>老派拼豆之必要<small>{route === 'works' ? 'ARTWORKS' : 'HOME'}</small></span></button>
     <nav className="shell-desktop-nav" aria-label="主导航"><button className={route === 'home' ? 'selected' : ''} onClick={() => onNavigate('home')}>首页</button><button className={route === 'works' ? 'selected' : ''} onClick={() => onNavigate('works')}>作品</button></nav>
-    <div className="shell-account"><span><i/>工作台就绪</span><button aria-label={user ? `账号：${user.username}` : '登录 / 注册'} onClick={onAccount}>{user ? <img src="/shell-avatar.png" alt=""/> : <UserRound size={20}/>}</button></div>
+    <div className="shell-account"><button aria-label={user ? `账号：${user.username}` : '登录 / 注册'} onClick={onAccount}>{user ? <img src="/shell-avatar.png" alt=""/> : <UserRound size={20}/>}</button></div>
   </div></header>;
 }
 
@@ -276,16 +272,15 @@ function ShellNav({route, onNavigate}: {route: Route; onNavigate: (route: Route)
 }
 
 function ShellFooter() { return <footer className="shell-footer"><span><strong>老派拼豆之必要</strong> · 慢工出细活的像素拼豆工作台</span><span>色板索引　 图纸规格　 关于工坊</span></footer>; }
-function SectionHeading({title, meta}: {title: string; meta: string}) { return <div className="section-heading"><h2><i/>{title}</h2><span>{meta}</span></div>; }
-function BeadMiniature() { return <span className="bead-miniature">{['#E5A93C', '#E0E3E0', '#C84B31', '#E0E3E0', '#E0E3E0', '#3A7CA5', '#E0E3E0', '#8E7DBE', '#E0E3E0', '#E0E3E0', '#152C20', '#E0E3E0', '#C84B31', '#E0E3E0', '#E0E3E0', '#E5A93C'].map((color, index) => <i key={index} style={{background: color}}/>)}</span>; }
+function SectionHeading({title}: {title: string}) { return <div className="section-heading"><h2><i/>{title}</h2></div>; }
 function BeadSwatches({colors}: {colors: string[]}) { return <span className="bead-swatches">{colors.map((color, index) => <i key={`${color}-${index}`} style={{background: color}}/>)}<small>+{Math.max(0, 65 - colors.length)} 色</small></span>; }
 
 type WorkCardProps = {open: () => void; more: boolean; toggleMore: () => void; rename: () => void; remove: () => void};
 function WorkMenu({open, rename, remove}: {open: boolean; rename: () => void; remove: () => void}) { return open ? <div className="work-menu"><button onClick={rename}><Pencil size={15}/>重命名</button><button className="danger" onClick={remove}><Trash2 size={15}/>删除</button></div> : null; }
 function LocalWorkCard({work, open, more, toggleMore, rename, remove}: {work: LocalWork} & WorkCardProps) {
   const colors = workColors(work.document.snapshot);
-  return <article className="work-card"><button className="work-card-open" onClick={open}><div className="work-card-preview"><WorkPreview snapshot={work.document.snapshot}/></div><div className="work-card-copy"><span><strong>{work.document.name}</strong><time>{relativeTime(work.document.updatedAt)}</time></span><small>{work.document.snapshot.width} × {work.document.snapshot.height} · {new Set(work.document.snapshot.cells.map(cell => cell.colorCode)).size} 种拼豆颜色</small><BeadSwatches colors={colors}/><ArrowRight className="work-arrow" size={19}/></div></button><div className="work-more"><button aria-label={`管理作品 ${work.document.name}`} onClick={toggleMore}><MoreHorizontal size={20}/></button><WorkMenu open={more} rename={rename} remove={remove}/></div></article>;
+  return <article className="work-card"><button className="work-card-open" onClick={open}><div className="work-card-preview"><WorkPreview snapshot={work.document.snapshot}/></div><div className="work-card-copy"><span><strong>{work.document.name}</strong><time>{relativeTime(work.document.updatedAt)}</time></span><small>{work.document.snapshot.width} × {work.document.snapshot.height} · {new Set(work.document.snapshot.cells.map(cell => cell.colorCode)).size} 种拼豆颜色</small><BeadSwatches colors={colors}/></div></button><div className="work-more"><button aria-label={`管理作品 ${work.document.name}`} onClick={toggleMore}><MoreHorizontal size={20}/></button><WorkMenu open={more} rename={rename} remove={remove}/></div></article>;
 }
 function CloudWorkCard({work, open, more, toggleMore, rename, remove}: {work: Summary} & WorkCardProps) {
-  return <article className="work-card cloud-card"><button className="work-card-open" onClick={open}><div className="work-card-preview cloud-placeholder"><Cloud size={30}/></div><div className="work-card-copy"><span><strong>{work.name}</strong><time>{relativeTime(work.updatedAt)}</time></span><small>{work.width} × {work.height} · 云端版本 {work.revision}</small><span className="cloud-label"><Cloud size={14}/>已同步</span><ArrowRight className="work-arrow" size={19}/></div></button><div className="work-more"><button aria-label={`管理作品 ${work.name}`} onClick={toggleMore}><MoreHorizontal size={20}/></button><WorkMenu open={more} rename={rename} remove={remove}/></div></article>;
+  return <article className="work-card cloud-card"><button className="work-card-open" onClick={open}><div className="work-card-preview cloud-placeholder"><Cloud size={30}/></div><div className="work-card-copy"><span><strong>{work.name}</strong><time>{relativeTime(work.updatedAt)}</time></span><small>{work.width} × {work.height} · 云端版本 {work.revision}</small><span className="cloud-label"><Cloud size={14}/>已同步</span></div></button><div className="work-more"><button aria-label={`管理作品 ${work.name}`} onClick={toggleMore}><MoreHorizontal size={20}/></button><WorkMenu open={more} rename={rename} remove={remove}/></div></article>;
 }

@@ -71,6 +71,22 @@ export function download(blob: Blob, filename: string) {
   anchor.href = url; anchor.download = filename; document.body.append(anchor); anchor.click(); anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
+export async function referenceImageData(file: File) {
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error('请选择 PNG、JPG 或 WebP 图片');
+  if (file.size > 15 * 1024 * 1024) throw new Error('参考图不能超过 15 MB');
+  const url = URL.createObjectURL(file), image = new Image();
+  try {
+    await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('图片无法读取，请重新选择')); image.src = url; });
+    if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth * image.naturalHeight > 50_000_000)
+      throw new Error('图片分辨率过大，请使用截图或较小的图片');
+    const ratio = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio)); canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+    const context = canvas.getContext('2d'); if (!context) throw new Error('当前浏览器无法处理参考图');
+    context.fillStyle = '#FFFFFF'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', .9);
+  } finally { URL.revokeObjectURL(url); }
+}
 export function downloadDocument(d: Document) { download(new Blob([JSON.stringify(d)], {type: 'application/json'}), `${safeFilename(d.name)}.pindou`); }
 export async function pngBlob(d: Document, grid: boolean, statistics = false, settings: GridSettings = DEFAULT_GRID_SETTINGS, selection?: Selection | null) {
   return new Promise<Blob>((resolve, reject) => renderPNG(d.snapshot, grid, statistics, settings, selection).toBlob(blob => blob ? resolve(blob) : reject(new Error('图片导出失败，请重试')), 'image/png'));

@@ -31,6 +31,38 @@ async function hidePalette(page: Page) {
   if (await close.isVisible()) await close.click();
 }
 
+test('reference image can be uploaded, moved, zoomed, replaced and restored', async ({page}, testInfo) => {
+  await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
+  await page.getByRole('button', {name: '添加参考图', exact: true}).click();
+  await page.getByLabel('选择参考图', {exact: true}).setInputFiles(path.resolve('public/icons/laopai-32.png'));
+  const panel = page.getByRole('region', {name: '参考图窗口', exact: true}), image = page.getByAltText('当前参考图');
+  await expect(panel).toBeVisible(); await expect(image).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+
+  const before = await panel.boundingBox(), heading = panel.locator('.reference-panel-heading'), headingBox = await heading.boundingBox();
+  if (!before || !headingBox) throw new Error('Reference panel was not rendered');
+  await page.mouse.move(headingBox.x + 40, headingBox.y + 24); await page.mouse.down(); await page.mouse.move(headingBox.x - 30, headingBox.y + 70, {steps: 5}); await page.mouse.up();
+  const moved = await panel.boundingBox(); expect(moved && (moved.x !== before.x || moved.y !== before.y)).toBeTruthy();
+
+  await panel.getByRole('button', {name: '放大参考图', exact: true}).click();
+  await expect(panel.getByRole('button', {name: '重置参考图缩放', exact: true})).toHaveText('125%');
+  const transform = await image.getAttribute('style'), stage = panel.getByLabel('参考图查看区域', {exact: true}), stageBox = await stage.boundingBox();
+  if (!stageBox) throw new Error('Reference image stage was not rendered');
+  await page.mouse.move(stageBox.x + stageBox.width / 2, stageBox.y + stageBox.height / 2); await page.mouse.down(); await page.mouse.move(stageBox.x + stageBox.width / 2 + 35, stageBox.y + stageBox.height / 2 + 20, {steps: 4}); await page.mouse.up();
+  expect(await image.getAttribute('style')).not.toBe(transform);
+  await page.screenshot({path: testInfo.outputPath('reference-image-panel.png')});
+
+  const original = await image.getAttribute('src'), chooser = page.waitForEvent('filechooser');
+  await panel.getByRole('button', {name: '更换参考图', exact: true}).click();
+  await (await chooser).setFiles(path.resolve('public/shell-avatar.png'));
+  await expect(image).not.toHaveAttribute('src', original!);
+  await expect(page.locator('.save-status')).toHaveText(/已自动保存/);
+
+  await panel.getByRole('button', {name: '隐藏参考图', exact: true}).click(); await expect(panel).toBeHidden();
+  await page.getByRole('button', {name: '显示参考图', exact: true}).click(); await expect(panel).toBeVisible();
+  await page.reload(); await expect(page.getByTestId('board')).toBeVisible();
+  await expect(page.getByRole('button', {name: '显示参考图', exact: true})).toBeVisible();
+});
+
 test('picker saves the draft before opening and cancellation returns to the same board', async ({page}) => {
   await page.goto('/#/editor'); await expect(page.getByTestId('board')).toBeVisible();
   await loadPattern(page, 8, 8, []);

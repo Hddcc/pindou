@@ -1,16 +1,17 @@
-import {useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode} from 'react';
-import {ArrowDownToLine, ArrowLeft, ChartColumn, Check, ChevronDown, Cloud, Download, Eraser, Eye, FlipHorizontal2, FlipVertical2, FolderOpen, Grid2X2, ImageDown, LoaderCircle, LogOut, Maximize, MoreHorizontal, Move, PaintBucket, Palette, Pencil, Pipette, Plus, Redo2, Scan, Search, Trash2, Undo2, UserRound, X, ZoomIn, ZoomOut} from 'lucide-react';
+import {useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode} from 'react';
+import {ArrowDownToLine, ArrowLeft, ChartColumn, Check, ChevronDown, Cloud, Download, Eraser, Eye, FlipHorizontal2, FlipVertical2, FolderOpen, Grid2X2, ImageDown, Images, LoaderCircle, LogOut, Maximize, MoreHorizontal, Move, PaintBucket, Palette, Pencil, Pipette, Plus, Redo2, Scan, Search, Trash2, Undo2, UserRound, X, ZoomIn, ZoomOut} from 'lucide-react';
 import {blank, colorHex, colors, colorStatistics, configureColors, displayColorCode, parseDocument, validateName, type Color, type GridSettings, type Selection, type Snapshot, type Tool} from '../domain/editor';
 import {useWorkspace} from '../application/useWorkspace';
 import {ApiError, cloudDocument, content, request, workBody, type CloudWork, type Summary, type User} from '../infrastructure/api';
 import {cachePalette, listLocal, removeLocal, saveRecovery, uuid, type CloudRef, type LocalWork} from '../infrastructure/local';
-import {download, downloadDocument, pngBlob, pngDimensions, renderPNG, safeFilename} from '../infrastructure/files';
+import {download, downloadDocument, pngBlob, pngDimensions, referenceImageData, renderPNG, safeFilename} from '../infrastructure/files';
 import {readGridSettings, saveGridSettings} from '../infrastructure/settings';
 import {Board, type BoardHandle} from './Board';
 import {ColorPicker} from './ColorPicker';
 import {ColorUsage} from './ColorUsage';
 import {Modal} from './Modal';
 import {DimensionField} from './DimensionField';
+import {ReferenceImagePanel} from './ReferenceImagePanel';
 
 function IconButton({label, children, onClick, disabled = false, active = false, expanded, controls}: {label: string; children: ReactNode; onClick: () => void; disabled?: boolean; active?: boolean; expanded?: boolean; controls?: string}) {
   return <button className={`icon-button ${active ? 'active' : ''}`} title={label} aria-label={label} aria-pressed={active || undefined} aria-expanded={expanded} aria-controls={controls} disabled={disabled} onClick={onClick}>{children}</button>;
@@ -34,7 +35,7 @@ const tools: {id: Tool; label: string; icon: typeof Pencil}[] = [
 type EditorModal = 'new' | 'resize' | 'save' | 'library' | 'auth' | 'export' | 'settings' | 'picker' | 'success' | null;
 
 export default function App({onExit, exitLabel = '返回首页', initialModal}: {onExit?: () => void; exitLabel?: string; initialModal?: Extract<EditorModal, 'auth'>}) {
-  const workspace = useWorkspace(), board = useRef<BoardHandle>(null), file = useRef<HTMLInputElement>(null);
+  const workspace = useWorkspace(), board = useRef<BoardHandle>(null), file = useRef<HTMLInputElement>(null), referenceFile = useRef<HTMLInputElement>(null);
   const [tool, setTool] = useState<Tool>('paint'), [color, setColor] = useState('H7');
   const [recent, setRecent] = useState(['H7', 'A1', 'C5', 'F5', 'B12', 'E2']);
   const [query, setQuery] = useState(''), [family, setFamily] = useState('全部'), [paletteOpen, setPaletteOpen] = useState(false);
@@ -58,6 +59,7 @@ export default function App({onExit, exitLabel = '返回首页', initialModal}: 
   const [exportSelection, setExportSelection] = useState(false);
   const [newSize, setNewSize] = useState({width: '32', height: '32'}), [resizeSize, setResizeSize] = useState({width: '32', height: '32'});
   const [pendingName, setPendingName] = useState('未命名拼豆图');
+  const [referenceVisible, setReferenceVisible] = useState(false);
   const [pwaUpdate, setPwaUpdate] = useState(false);
   const [offlineReady, setOfflineReady] = useState(() => !!navigator.serviceWorker?.controller);
   const [paletteVersion, paletteChanged] = useState(0);
@@ -71,6 +73,7 @@ export default function App({onExit, exitLabel = '返回首页', initialModal}: 
   const mobileLabel = beadMode ? visibleFilters.size === 1 ? displayColorCode([...visibleFilters][0]) : visibleFilters.size ? `${visibleFilters.size} 种颜色` : '全部颜色' : currentLabel;
   const mobileHex = beadMode && visibleFilters.size === 1 ? colorHex([...visibleFilters][0]) : beadMode ? '#E8ECEA' : currentHex;
   useEffect(() => { setSelection(null); setExportSelection(false); }, [workspace.editor, workspace.editor.width, workspace.editor.height]);
+  useEffect(() => { setReferenceVisible(false); }, [workspace.work.localKey]);
   useEffect(() => { saveGridSettings(gridSettings); }, [gridSettings]);
   useEffect(() => { if (modal || paletteOpen) setMenu(null); }, [modal, paletteOpen]);
   useEffect(() => {
@@ -118,6 +121,18 @@ export default function App({onExit, exitLabel = '返回首页', initialModal}: 
   function openPicker() {
     void run('保存草稿', async () => {
       await workspace.flush(); setPaletteOpen(false); openModal('picker');
+    });
+  }
+  function toggleReference() {
+    if (!workspace.work.referenceImage) referenceFile.current?.click();
+    else setReferenceVisible(value => !value);
+  }
+  function loadReference(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0]; event.target.value = '';
+    if (!selected) return;
+    void run('正在载入参考图', async () => {
+      const referenceImage = await referenceImageData(selected), work = workspace.current();
+      work.referenceImage = referenceImage; workspace.metadata(work); workspace.changed(); setReferenceVisible(true);
     });
   }
   function openMode() { switchMode(openInBeadMode); }
@@ -230,6 +245,7 @@ export default function App({onExit, exitLabel = '返回首页', initialModal}: 
           <IconButton label="反撤回" disabled={beadMode || !workspace.editor.canRedo} onClick={() => history(true)}><Redo2 size={19}/></IconButton>
         </div>
         <button className="command secondary actions-trigger" aria-label="画布操作" title="画布操作" aria-expanded={menu === 'actions'} aria-controls="canvas-actions-menu" onClick={() => { setPaletteOpen(false); setMenu(menu === 'actions' ? null : 'actions'); }}><MoreHorizontal size={22}/><span>{beadMode ? '拼豆模式' : '绘图模式'}</span><ChevronDown size={14}/></button>
+        <button className={`command secondary reference-trigger ${referenceVisible ? 'active' : ''}`} aria-label={workspace.work.referenceImage ? referenceVisible ? '隐藏参考图' : '显示参考图' : '添加参考图'} title={workspace.work.referenceImage ? referenceVisible ? '隐藏参考图' : '显示参考图' : '添加参考图'} aria-pressed={referenceVisible} disabled={!!busy || !workspace.ready} onClick={toggleReference}><Images size={20}/><span>参考图</span></button>
         <div id="canvas-actions-menu" className="actions-menu" role="group" aria-label="画布操作菜单" hidden={menu !== 'actions'}>
           <div className="segmented mode-switch" aria-label="画布模式"><button className={!beadMode ? 'selected' : ''} aria-pressed={!beadMode} disabled={!workspace.ready} onClick={() => switchMode(false)}><Pencil size={16}/>绘图模式</button><button className={beadMode ? 'selected' : ''} aria-pressed={beadMode} disabled={!workspace.ready} onClick={() => switchMode(true)}><Grid2X2 size={16}/>拼豆模式</button></div>
           <div className="menu-commands">
@@ -274,6 +290,7 @@ export default function App({onExit, exitLabel = '返回首页', initialModal}: 
         />}
       </aside>
     </div>
+    {workspace.work.referenceImage && <ReferenceImagePanel src={workspace.work.referenceImage} visible={referenceVisible} onReplace={() => referenceFile.current?.click()} onHide={() => setReferenceVisible(false)}/>}
     <nav className="bottom-dock" aria-label="绘图工具">
       <div className="dock-tools">{tools.map(({id, label, icon: Icon}) => id === 'erase' ? <div className="dock-eraser" ref={eraserTool} key={id}>
         <IconButton label={label} active={!beadMode && tool === id} disabled={!workspace.ready || beadMode} expanded={menu === 'eraser'} controls="eraser-sizes" onClick={() => chooseTool(id)}><Icon size={22}/><span>{label}</span><small className="eraser-size-badge">{eraserSize}</small></IconButton>
@@ -292,6 +309,7 @@ export default function App({onExit, exitLabel = '返回首页', initialModal}: 
     </nav>
     {paletteOpen && <button className="palette-backdrop" aria-label="收起色板" onClick={() => setPaletteOpen(false)}/>}
     <input ref={file} className="hidden-input" type="file" aria-label="打开作品文件" accept=".pindou,application/json" onChange={e => { const selected = e.target.files?.[0]; e.target.value = ''; if (selected) void run('打开文件', () => importFile(selected)); }}/>
+    <input ref={referenceFile} className="hidden-input" type="file" aria-label="选择参考图" accept="image/png,image/jpeg,image/webp" onChange={loadReference}/>
     {notice && <div className="toast" role="status"><Check size={17}/>{notice}</div>}
     {busy && <div className="busy-status" role="status"><LoaderCircle size={16} className="spin"/>{busy}…</div>}
 

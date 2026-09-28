@@ -1,10 +1,14 @@
 import {parseDocument, type Color, type Document} from '../domain/editor';
 
 export type CloudRef = {userId: string; id?: string; revision?: number; key: string; pending?: Document; savedContent?: string};
-export type LocalWork = {localKey: string; document: Document; cloudRefs: Record<string, CloudRef>};
+export type LocalWork = {localKey: string; document: Document; cloudRefs: Record<string, CloudRef>; referenceImage?: string};
 const RECOVERY_KEY = 'pindou-recovery';
+function recoveryValue(work: LocalWork) {
+  const {referenceImage: _referenceImage, ...recoverable} = work;
+  return JSON.stringify(recoverable);
+}
 export function saveRecovery(work: LocalWork) {
-  try { localStorage.setItem(RECOVERY_KEY, JSON.stringify(work)); } catch { /* IndexedDB autosave remains the primary persistence mechanism. */ }
+  try { localStorage.setItem(RECOVERY_KEY, recoveryValue(work)); } catch { /* IndexedDB autosave remains the primary persistence mechanism. */ }
 }
 export function readRecovery(): LocalWork | undefined {
   try {
@@ -14,7 +18,7 @@ export function readRecovery(): LocalWork | undefined {
   } catch { return undefined; }
 }
 export function clearRecovery(work: LocalWork) {
-  try { if (localStorage.getItem(RECOVERY_KEY) === JSON.stringify(work)) localStorage.removeItem(RECOVERY_KEY); } catch { /* Best-effort recovery cleanup. */ }
+  try { if (localStorage.getItem(RECOVERY_KEY) === recoveryValue(work)) localStorage.removeItem(RECOVERY_KEY); } catch { /* Best-effort recovery cleanup. */ }
 }
 let connection: Promise<IDBDatabase> | undefined;
 function db() {

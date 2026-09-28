@@ -2,6 +2,7 @@ import {useEffect, useMemo, useRef, useState, type ChangeEvent} from 'react';
 import {ArrowRight, Cloud, FileImage, FileUp, Grid2X2, Home, ImagePlus, LayoutGrid, List, LoaderCircle, LogOut, MoreHorizontal, Pencil, Plus, Smartphone, Trash2, UserRound, X} from 'lucide-react';
 import {blank, colorHex, nearestMardColors, parseDocument, validateName, type Document, type Snapshot} from '../domain/editor';
 import {cloudDocument, content, request, type CloudWork, type Summary, type User} from '../infrastructure/api';
+import {referenceImageData} from '../infrastructure/files';
 import {listLocal, putLocal, removeLocal, uuid, type LocalWork} from '../infrastructure/local';
 import EditorApp from './App';
 import {Modal} from './Modal';
@@ -78,7 +79,7 @@ async function imageDocument(file: File, size: number): Promise<Document> {
   } finally { bitmap.close(); }
 }
 
-function newRecord(document: Document): LocalWork { return {localKey: uuid(), document, cloudRefs: {}}; }
+function newRecord(document: Document, referenceImage?: string): LocalWork { return {localKey: uuid(), document, cloudRefs: {}, referenceImage}; }
 
 export default function Shell() {
   const [route, setRoute] = useState<Route>(routeFromHash);
@@ -153,7 +154,10 @@ export default function Shell() {
   function convertImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]; event.target.value = '';
     if (!file) return;
-    void run('正在生成拼豆图', async () => { await openEditor(newRecord(await imageDocument(file, size))); });
+    void run('正在生成拼豆图', async () => {
+      const [document, referenceImage] = await Promise.all([imageDocument(file, size), referenceImageData(file)]);
+      await openEditor(newRecord(document, referenceImage));
+    });
   }
 
   async function openCloud(item: Summary) {

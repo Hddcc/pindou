@@ -95,6 +95,9 @@ test('image entry creates a regular editable work', async ({page}, testInfo) => 
   await page.goto('/');
   await page.locator('input[accept="image/png,image/jpeg,image/webp"]').setInputFiles(path.resolve('public/icons/laopai-32.png'));
   await expect(page.getByTestId('board')).toBeVisible();
+  await expect(page.getByRole('button', {name: '显示参考图', exact: true})).toBeVisible();
+  await page.getByRole('button', {name: '显示参考图', exact: true}).click();
+  await expect(page.getByRole('region', {name: '参考图窗口', exact: true})).toBeVisible();
   await expect(page.locator('.bead-count')).not.toHaveText('0 颗拼豆');
   await expect(page.getByRole('button', {name: '返回首页'})).toBeVisible();
 });

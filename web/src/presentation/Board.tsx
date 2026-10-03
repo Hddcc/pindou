@@ -58,7 +58,7 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
     c.width = Math.round(width * dpr); c.height = Math.round(height * dpr);
     const ctx = c.getContext('2d')!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#e8ecea'; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#efe7db'; ctx.fillRect(0, 0, width, height);
     const ruler = 26;
     ctx.save(); ctx.beginPath(); ctx.rect(ruler, ruler, Math.max(0, width - ruler * 2), Math.max(0, height - ruler * 2)); ctx.clip();
     const v = view.current, bw = editor.width * v.size, bh = editor.height * v.size;
@@ -66,10 +66,10 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
     const x1 = Math.min(editor.width, Math.ceil((width - v.x) / v.size)), y1 = Math.min(editor.height, Math.ceil((height - v.y) / v.size));
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const stored = editor.get(x, y), code = beadMode && filters.size && stored && !filters.has(stored) ? undefined : stored;
-      ctx.fillStyle = code ? colorHex(code) : (x + y) % 2 ? '#F1F3F2' : '#FFFFFF';
+      ctx.fillStyle = code ? colorHex(code) : (x + y) % 2 ? '#fff7ee' : '#fffdf8';
       ctx.fillRect(v.x + x * v.size, v.y + y * v.size, v.size, v.size);
     }
-    const gridColor = (opacity: number) => `rgba(87, 101, 94, ${opacity / 100})`;
+    const gridColor = (opacity: number) => `rgba(140, 124, 110, ${opacity / 100})`;
     function gridLines(every: number, style: 'solid' | 'dashed', stroke: string, lineWidth: number) {
       ctx.save(); ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth;
       ctx.setLineDash(style === 'dashed' ? [Math.max(2, v.size * .24), Math.max(2, v.size * .18)] : []); ctx.beginPath();
@@ -112,7 +112,7 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
           }
         });
       }
-      ctx.save(); ctx.strokeStyle = '#416AA2'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.save(); ctx.strokeStyle = '#e35e46'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
       ctx.strokeRect(v.x + activeSelection.x * v.size, v.y + activeSelection.y * v.size, activeSelection.width * v.size, activeSelection.height * v.size); ctx.restore();
     }
     if (!beadMode && editor.lastErased.size) {
@@ -122,20 +122,20 @@ export const Board = forwardRef<BoardHandle, Props>(function Board({editor, tool
         ctx.lineTo(v.x + edge.to.x * v.size, v.y + edge.to.y * v.size);
       }
       ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3; ctx.stroke();
-      ctx.strokeStyle = '#416AA2'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.restore();
+      ctx.strokeStyle = '#e35e46'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.restore();
     }
     if (hover.current && tool !== 'pan' && tool !== 'select') {
       const h = hover.current, brush = tool === 'erase' ? eraserSize : 1, offset = Math.floor(brush / 2);
       const left = Math.max(0, h.x - offset), top = Math.max(0, h.y - offset);
       const right = Math.min(editor.width, h.x - offset + brush), bottom = Math.min(editor.height, h.y - offset + brush);
-      ctx.strokeStyle = tool === 'erase' ? '#B54444' : '#16705B'; ctx.lineWidth = 2;
+      ctx.strokeStyle = tool === 'erase' ? '#B54444' : '#e35e46'; ctx.lineWidth = 2;
       ctx.strokeRect(v.x + left * v.size + 1, v.y + top * v.size + 1, (right - left) * v.size - 2, (bottom - top) * v.size - 2);
     }
     ctx.restore();
-    ctx.fillStyle = '#FAFBFA';
+    ctx.fillStyle = '#fffdf8';
     ctx.fillRect(0, 0, width, ruler); ctx.fillRect(0, height - ruler, width, ruler);
     ctx.fillRect(0, ruler, ruler, height - ruler * 2); ctx.fillRect(width - ruler, ruler, ruler, height - ruler * 2);
-    ctx.font = `600 ${Math.max(5, Math.min(11, v.size * .43))}px system-ui`; ctx.fillStyle = '#43564D'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `600 ${Math.max(5, Math.min(11, v.size * .43))}px system-ui`; ctx.fillStyle = '#8c7c6e'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (let x = x0; x < x1; x++) {
       const px = v.x + (x + .5) * v.size;
       if (px < ruler || px > width - ruler) continue;

@@ -166,9 +166,10 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
 .color-family h3 {display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 0 3px 8px;}
 .color-family h3 small {color: var(--muted); font-size: 11px; font-weight: 400;}
 .color-family-grid {display: grid; grid-template-columns: repeat(var(--color-columns), minmax(0, 1fr)); gap: 9px 6px;}
-.color-tile {height: 58px; background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 3px; display: flex; flex-direction: column; align-items: center; gap: 4px;}
-.color-tile > span {width: 100%; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 3px; border: 1px solid #00000012; flex-shrink: 0;}
-.color-tile small {font-size: 10px; line-height: 13px;}
+.color-tile {position: relative; width: 100%; height: auto; aspect-ratio: 1; background: transparent; border: 2px solid transparent; border-radius: 10px; padding: 4px; display: block;}
+.color-tile > span {position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #00000012;}
+.color-tile strong {max-width: 100%; padding: 4px; font-size: 12px; line-height: 1.15; font-weight: 650; text-align: center; overflow-wrap: anywhere;}
+.color-tile-check {position: absolute; top: 5px; right: 5px;}
 .color-tile.selected {border-color: var(--green); background: #eaf3ee;}
 .palette-bottom {height: 47px; display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--line); flex-shrink: 0; font-size: 11px; padding-bottom: env(safe-area-inset-bottom);}
 .palette-bottom > span {width: 15px; height: 15px; border-radius: 3px; border: 1px solid #00000015;}
@@ -333,9 +334,9 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
   .dock-color {width: 44px; height: 48px; padding: 0; display: flex; justify-content: center;}
   .dock-color strong, .dock-color svg {display: none;}
   .palette-panel {width: calc(100% - 16px); padding: 10px;}
-  .palette-toolbar {grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px;}
-  .palette-toolbar .palette-tabs {grid-column: 1 / -1; grid-row: 1; width: calc(100% - 52px);}
-  .palette-toolbar > .icon-button {grid-column: 2; grid-row: 1; justify-self: end;}
+  .palette-toolbar {grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 8px;}
+  .palette-toolbar .palette-tabs {grid-column: 1 / 3; grid-row: 1; width: 100%;}
+  .palette-toolbar > .icon-button {grid-column: 3; grid-row: 1; justify-self: end;}
   .palette-toolbar .search-box {grid-column: 1; grid-row: 2; padding: 0 8px; gap: 4px;}
   .palette-toolbar .family-filter {grid-column: 2; grid-row: 2; margin: 0;}
   .palette-toolbar .family-filter > label {display: none;}
@@ -343,7 +344,6 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
   .selected-color {padding-bottom: 12px;}
   .large-swatch {width: 40px; height: 40px;}
   .color-grid {--color-columns: 7;}
-  .color-tile {height: 60px;}
   .palette-bottom {height: 44px;}
   .toast {bottom: calc(100% - var(--app-height, 100vh) + 74px + env(safe-area-inset-bottom));}
   .busy-status {top: 72px;}

@@ -265,7 +265,7 @@ export default function Shell() {
 
 function ShellHeader({route, user, onNavigate, onAccount}: {route: Route; user: User | null; onNavigate: (route: Route) => void; onAccount: () => void}) {
   return <header className="shell-header"><div className="shell-header-inner">
-    <button className="shell-brand" onClick={() => onNavigate('home')}><img src="/shell-logo.png" alt=""/><span>老派拼豆之必要<small>{route === 'works' ? 'ARTWORKS' : 'HOME'}</small></span></button>
+    <button className="shell-brand" onClick={() => onNavigate('home')}><img src="/icons/laopai-192.png" alt=""/><span>老派拼豆之必要<small>{route === 'works' ? 'ARTWORKS' : 'HOME'}</small></span></button>
     <nav className="shell-desktop-nav" aria-label="主导航"><button className={route === 'home' ? 'selected' : ''} onClick={() => onNavigate('home')}>首页</button><button className={route === 'works' ? 'selected' : ''} onClick={() => onNavigate('works')}>作品</button></nav>
     <div className="shell-account"><button aria-label={user ? `账号：${user.username}` : '登录 / 注册'} onClick={onAccount}>{user ? <img src="/shell-avatar.png" alt=""/> : <UserRound size={20}/>}</button></div>
   </div></header>;

@@ -68,19 +68,20 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
 .dock-color strong {font-size: 11px; text-align: left; overflow-wrap: anywhere; line-height: 15px; min-width: 0; max-height: 30px; overflow: hidden;}
 .dock-color svg {color: var(--green);}
 .canvas-workspace {flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative;}
-.reference-panel {position: fixed; z-index: 29; width: min(360px, calc(100vw - 24px)); overflow: hidden; border: 1px solid #cbd8d0; border-radius: 8px; background: #fff; box-shadow: 0 10px 34px #17352930;}
+.reference-panel {position: fixed; z-index: 29; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #cbd8d0; border-radius: 8px; background: #fff; box-shadow: 0 10px 34px #17352930;}
 .reference-panel-heading {height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-left: 13px; border-bottom: 1px solid var(--line); background: #f7f9f8; cursor: move; touch-action: none; user-select: none;}
 .reference-panel-heading > span,.reference-panel-heading > div {display: flex; align-items: center;}
 .reference-panel-heading > span {gap: 8px; min-width: 0; color: var(--muted);}
 .reference-panel-heading strong {color: #263c32; font-size: 13px;}
 .reference-panel-heading > div {margin-left: auto;}
 .reference-panel-heading .icon-button {border-radius: 0;}
-.reference-image-stage {position: relative; width: 100%; height: min(320px, 42vh); min-height: 190px; overflow: hidden; display: grid; place-items: center; background-color: #eef2ef; background-image: conic-gradient(#e2e8e4 25%, transparent 0 50%, #e2e8e4 0 75%, transparent 0); background-size: 16px 16px; cursor: grab; touch-action: none; user-select: none; overscroll-behavior: contain;}
+.reference-image-stage {position: relative; width: 100%; height: auto; min-height: 0; flex: 1; overflow: hidden; display: grid; place-items: center; background-color: #eef2ef; background-image: conic-gradient(#e2e8e4 25%, transparent 0 50%, #e2e8e4 0 75%, transparent 0); background-size: 16px 16px; cursor: grab; touch-action: none; user-select: none; overscroll-behavior: contain;}
 .reference-image-stage:active {cursor: grabbing;}
 .reference-image-stage img {width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; will-change: transform;}
 .reference-image-controls {height: 48px; display: flex; align-items: center; justify-content: center; border-top: 1px solid var(--line); background: #fff;}
 .reference-image-controls .icon-button {height: 44px;}
 .reference-scale {width: 58px; height: 44px; padding: 0; border: 0; background: transparent; font-size: 11px; font-variant-numeric: tabular-nums;}
+.reference-panel-resize {position: absolute; right: 4px; bottom: 50px; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: #fffdf8c9; color: var(--muted); cursor: nwse-resize; touch-action: none;}
 .mode-switch {flex: 1; min-width: 0; max-width: 220px; margin: 0 !important;}
 .mode-switch button {min-width: 0; min-height: 36px; font-size: 12px; gap: 5px; padding: 0 4px;}
 .mode-switch svg {flex-shrink: 0;}
@@ -125,7 +126,7 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
 .selection-bar {position: absolute; z-index: 2; bottom: 56px; left: 32px; display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 0 10px; min-height: 36px; background: #F5F8FA; color: #416AA2; border: 1px solid #CCD8E5; border-radius: 4px;}
 .selection-bar .icon-button {height: 36px; width: 40px;}
 .board.tool-select {cursor: move;}
-.palette-tabs {margin: -4px 0 0 !important; flex-shrink: 0;}
+.palette-tabs {margin: 0 !important; flex-shrink: 0;}
 .palette-tabs button {font-size: 12px; min-height: 36px; gap: 5px;}
 .color-usage {display: flex; flex-direction: column; flex: 1; min-height: 0; padding-bottom: 14px; gap: 12px;}
 .usage-total {display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; flex-shrink: 0;}
@@ -166,9 +167,10 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
 .color-family h3 {display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 0 3px 8px;}
 .color-family h3 small {color: var(--muted); font-size: 11px; font-weight: 400;}
 .color-family-grid {display: grid; grid-template-columns: repeat(var(--color-columns), minmax(0, 1fr)); gap: 9px 6px;}
-.color-tile {height: 58px; background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 3px; display: flex; flex-direction: column; align-items: center; gap: 4px;}
-.color-tile > span {width: 100%; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 3px; border: 1px solid #00000012; flex-shrink: 0;}
-.color-tile small {font-size: 10px; line-height: 13px;}
+.color-tile {position: relative; width: 100%; height: auto; aspect-ratio: 1; background: transparent; border: 2px solid transparent; border-radius: 8px; padding: 2px; display: block;}
+.color-tile > span {position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #00000012;}
+.color-tile strong {max-width: 100%; padding: 4px; font-size: 12px; line-height: 1.15; font-weight: 650; text-align: center; overflow-wrap: anywhere;}
+.color-tile-check {position: absolute; top: 5px; right: 5px;}
 .color-tile.selected {border-color: var(--green); background: #eaf3ee;}
 .palette-bottom {height: 47px; display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--line); flex-shrink: 0; font-size: 11px; padding-bottom: env(safe-area-inset-bottom);}
 .palette-bottom > span {width: 15px; height: 15px; border-radius: 3px; border: 1px solid #00000015;}
@@ -333,9 +335,9 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
   .dock-color {width: 44px; height: 48px; padding: 0; display: flex; justify-content: center;}
   .dock-color strong, .dock-color svg {display: none;}
   .palette-panel {width: calc(100% - 16px); padding: 10px;}
-  .palette-toolbar {grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px;}
-  .palette-toolbar .palette-tabs {grid-column: 1 / -1; grid-row: 1; width: calc(100% - 52px);}
-  .palette-toolbar > .icon-button {grid-column: 2; grid-row: 1; justify-self: end;}
+  .palette-toolbar {grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 8px;}
+  .palette-toolbar .palette-tabs {grid-column: 1 / 3; grid-row: 1; width: 100%;}
+  .palette-toolbar > .icon-button {grid-column: 3; grid-row: 1; justify-self: end;}
   .palette-toolbar .search-box {grid-column: 1; grid-row: 2; padding: 0 8px; gap: 4px;}
   .palette-toolbar .family-filter {grid-column: 2; grid-row: 2; margin: 0;}
   .palette-toolbar .family-filter > label {display: none;}
@@ -343,7 +345,6 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
   .selected-color {padding-bottom: 12px;}
   .large-swatch {width: 40px; height: 40px;}
   .color-grid {--color-columns: 7;}
-  .color-tile {height: 60px;}
   .palette-bottom {height: 44px;}
   .toast {bottom: calc(100% - var(--app-height, 100vh) + 74px + env(safe-area-inset-bottom));}
   .busy-status {top: 72px;}
@@ -353,8 +354,8 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
   .library-top .segmented {width: 100%; margin-bottom: 10px;}
   .work-preview, .cloud-preview {width: 48px; height: 48px;}
   .work-row .icon-button {width: 36px;}
-  .reference-panel {width: min(330px, calc(100vw - 16px));}
-  .reference-image-stage {height: min(270px, 40vh); min-height: 170px;}
+  .reference-panel {max-width: calc(100vw - 16px); max-height: calc(100vh - 16px);}
+  .reference-image-stage {height: auto; min-height: 0;}
 }
 @media (max-width: 480px) {
   .app-header {position: relative; grid-template-columns: 70px 1fr auto; gap: 2px; padding: 0 6px;}
@@ -362,6 +363,10 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
   .header-identity > .icon-button {width: 36px;}
   .header-identity .brand {display: none;}
   .document-heading {overflow: hidden;}
+  .document-name {display: inline-flex; width: 34px; height: 36px; max-width: 34px; font-size: 0; justify-content: center; gap: 0;}
+  .document-name svg {display: block;}
+  .document-meta {display: none;}
+  .document-heading {gap: 0;}
   .header-actions {position: absolute; grid-column: 1 / -1; left: 50%; gap: 2px; transform: translateX(-50%);}
   .history-actions .icon-button {width: 34px;}
   .actions-trigger, .reference-trigger {width: 40px;}
@@ -381,3 +386,61 @@ button:hover:not(:disabled) {background-color: #e8f0ec;}
 @media (min-width: 761px) and (min-height: 521px) {
   .color-grid {--color-columns: 10;}
 }
+
+/* Coral collage skin: the existing toolbar and workspace controls keep their positions. */
+body {
+  --bg: #f6f1e9;
+  --surface: #fffdf8;
+  --surface-2: #fff3e2;
+  --line: #eadfd0;
+  --line-strong: #d8c7b2;
+  --ink: #29231f;
+  --muted: #8c7c6e;
+  --green: #e35e46;
+  background: var(--bg);
+}
+.app-shell {background: var(--bg);}
+.app-header {background: #fffdf8; border-bottom-color: var(--line); box-shadow: 0 5px 0 #e7d6bf;}
+.brand img {border-radius: 10px; box-shadow: 3px 3px 0 #f6d84b;}
+.document-heading {border-left-color: var(--line);}
+.status-dot {background: #5a9e8a;}
+.history-actions, .zoom-controls {border-color: var(--line-strong); background: #fffdf8;}
+.history-actions .icon-button + .icon-button, .zoom-divider {border-color: var(--line); background: var(--line);}
+.icon-button.active, .command.secondary.active {color: #fffdf8; background: var(--ink); border-color: var(--ink); box-shadow: 3px 3px 0 #d7bfa5;}
+.command.secondary {background: #fffdf8; border-color: var(--line-strong);}
+.command.primary {background: var(--green); border-color: var(--green); box-shadow: 3px 3px 0 #d7bfa5;}
+.command.primary:hover:not(:disabled) {background: #c94d38;}
+.actions-menu, .brush-modes, .eraser-sizes {border-color: var(--line-strong); border-radius: 16px; background: #fffdf8; box-shadow: 7px 8px 0 #e7d6bf;}
+.segmented {background: #fff0df; border-radius: 999px;}
+.segmented button {border-radius: 999px;}
+.segmented button.selected {color: var(--ink); background: #f6d84b; box-shadow: none;}
+.editor-layout, .canvas-workspace {background: var(--bg);}
+.board-host {background: #efe7db;}
+.workspace-footer {color: var(--muted); background: #fffdf8; border-top: 1px solid var(--line);}
+.recent-swatch.selected {outline-color: var(--green);}
+.dock-color.active {color: var(--ink); background: #f6d84b;}
+.dock-swatch {border-color: #d8c7b2; border-radius: 8px;}
+.bottom-dock {background: #fffdf8; border-top-color: var(--line); box-shadow: 0 -5px 0 #e7d6bf;}
+.dock-tools .icon-button.active {color: #fffdf8; background: var(--ink); box-shadow: 3px 3px 0 #d7bfa5;}
+.dock-divider {background: var(--line-strong);}
+.bead-filter-strip button {border-color: var(--line-strong); border-radius: 999px; background: #fffdf8;}
+.bead-filter-strip button.selected {border-color: var(--green); background: #ffe4d8; box-shadow: inset 0 0 0 1px var(--green);}
+.palette-panel {background: #fffdf8; border-color: var(--line-strong); border-radius: 18px 18px 0 0; box-shadow: 0 -7px 0 #e7d6bf;}
+.palette-toolbar .palette-tabs {gap: 0; height: 44px; padding: 0; box-sizing: border-box; border-radius: 999px; overflow: hidden;}
+.palette-toolbar .palette-tabs button {height: 44px; min-height: 44px; border-radius: 999px;}
+.palette-tabs button.selected {color: var(--ink); background: #f6d84b; box-shadow: none;}
+.search-box {background: #fff7ee; border-color: var(--line-strong); border-radius: 999px;}
+.family-filter select, .color-tile > span {border-color: var(--line-strong);}
+.color-tile {width: 100%; border-radius: 8px;}
+.color-tile.selected {border-color: var(--green); background: #ffe4d8;}
+.color-family {border-top-color: var(--line);}
+.palette-backdrop {background: #5b483244;}
+.selection-bar {background: #fffdf8; color: #b33f2d; border-color: var(--green); border-radius: 999px; box-shadow: 4px 5px 0 #e7d6bf;}
+.selection-bar .icon-button {border-radius: 50%; color: #b33f2d;}
+.reference-panel {border-color: var(--line-strong); border-radius: 18px; background: #fffdf8; box-shadow: 8px 10px 0 #e7d6bf;}
+.reference-panel-heading {background: #fff3e2; border-bottom-color: var(--line);}
+.reference-image-stage {background-color: #f1e9dd; background-image: conic-gradient(#e3d6c6 25%, transparent 0 50%, #e3d6c6 0 75%, transparent 0);}
+.reference-image-controls {background: #fffdf8; border-top-color: var(--line);}
+.toast, .busy-status {background: var(--ink); border-color: var(--ink);}
+.toast {border-radius: 999px;}
+.toast i {background: #f6d84b;}

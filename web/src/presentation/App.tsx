@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode} from 'react';
 import {ArrowDownToLine, ArrowLeft, ChartColumn, Check, ChevronDown, Cloud, Download, Eraser, Eye, FlipHorizontal2, FlipVertical2, FolderOpen, Grid2X2, ImageDown, Images, LoaderCircle, LogOut, Maximize, MoreHorizontal, Move, PaintBucket, Palette, Pencil, Pipette, Plus, Redo2, Scan, Search, Trash2, Undo2, UserRound, X, ZoomIn, ZoomOut} from 'lucide-react';
-import {blank, colorHex, colors, colorStatistics, configureColors, displayColorCode, parseDocument, validateName, type Color, type GridSettings, type Selection, type Snapshot, type Tool} from '../domain/editor';
+import {blank, colorHex, colors, colorStatistics, configureColors, displayColorCode, parseDocument, readableText, validateName, type Color, type GridSettings, type Selection, type Snapshot, type Tool} from '../domain/editor';
 import {useWorkspace} from '../application/useWorkspace';
 import {ApiError, cloudDocument, content, request, workBody, type CloudWork, type Summary, type User} from '../infrastructure/api';
 import {cachePalette, listLocal, removeLocal, saveRecovery, uuid, type CloudRef, type LocalWork} from '../infrastructure/local';
@@ -283,7 +283,7 @@ export default function App({onExit, exitLabel = '返回首页', initialModal}: 
         {paletteView === 'palette' ? <div className="color-grid">{colorGroups.map(group => <section key={group.name} className="color-family" aria-label={`${group.name} 系列`}>
           <h3>{group.name}<small>{group.items.length} 色</small></h3>
           <div className="color-family-grid">{group.items.map(c => <button key={c.code} className={`color-tile ${c.code === color ? 'selected' : ''}`} title={`${displayColorCode(c.code)} · ${c.hex}`} aria-label={`颜色 ${displayColorCode(c.code)}`} aria-pressed={c.code === color} onClick={() => pick(c.code)}>
-          <span style={{background: c.hex}}>{c.code === color && <Check size={15} color={parseInt(c.hex.slice(1, 3), 16) + parseInt(c.hex.slice(3, 5), 16) + parseInt(c.hex.slice(5), 16) > 390 ? '#173d30' : '#fff'}/>}</span><small>{displayColorCode(c.code)}</small>
+          <span style={{background: c.hex, color: readableText(c.hex)}}><strong>{displayColorCode(c.code)}</strong>{c.code === color && <Check className="color-tile-check" size={15}/>}</span>
         </button>)}</div></section>)}{!filteredColors.length && <div className="empty-colors">没有匹配的色号</div>}</div> : <ColorUsage
           items={statistics} selected={beadMode ? visibleFilters : color} beadMode={beadMode}
           onSelect={code => { if (beadMode) { if (code) toggleBeadFilter(code); else setBeadFilters(new Set()); } else if (code) pick(code); }}

@@ -1,7 +1,8 @@
 import {useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent} from 'react';
-import {EyeOff, GripHorizontal, ImagePlus, Maximize, ZoomIn, ZoomOut} from 'lucide-react';
+import {EyeOff, GripHorizontal, ImagePlus, Maximize, Maximize2, ZoomIn, ZoomOut} from 'lucide-react';
 
 type Point = {x: number; y: number};
+type PanelSize = {width: number; height: number};
 type Gesture =
   | {kind: 'pan'; pointerId: number; start: Point; offset: Point}
   | {kind: 'pinch'; distance: number; midpoint: Point; scale: number; offset: Point};
@@ -13,14 +14,19 @@ const midpoint = (a: Point, b: Point): Point => ({x: (a.x + b.x) / 2, y: (a.y + 
 export function ReferenceImagePanel({src, visible, onReplace, onHide}: {src: string; visible: boolean; onReplace: () => void; onHide: () => void}) {
   const panel = useRef<HTMLElement>(null), stage = useRef<HTMLDivElement>(null);
   const panelDrag = useRef<{pointerId: number; start: Point; position: Point} | null>(null);
+  const panelResize = useRef<{pointerId: number; start: Point; size: PanelSize} | null>(null);
   const pointers = useRef(new Map<number, Point>()), gesture = useRef<Gesture | null>(null);
   const scaleValue = useRef(1), offsetValue = useRef<Point>({x: 0, y: 0});
   const [position, setPosition] = useState<Point>(() => ({x: Math.max(12, window.innerWidth - 380), y: 88}));
+  const [panelSize, setPanelSize] = useState<PanelSize>(() => ({width: Math.min(360, Math.max(260, window.innerWidth - 24)), height: Math.min(460, Math.max(300, Math.round(window.innerHeight * .52)))}));
   const [scale, setScale] = useState(1), [offset, setOffset] = useState<Point>({x: 0, y: 0});
 
-  function keepPanelInView(next: Point) {
+  function normalizePanelSize(next: PanelSize) {
+    return {width: clamp(next.width, 260, Math.max(260, window.innerWidth - 16)), height: clamp(next.height, 300, Math.max(300, window.innerHeight - 16))};
+  }
+  function keepPanelInView(next: Point, requestedSize = panelSize) {
     const bounds = panel.current?.getBoundingClientRect();
-    const width = bounds?.width ?? Math.min(360, window.innerWidth - 24), height = bounds?.height ?? 340;
+    const width = requestedSize.width || bounds?.width || 360, height = requestedSize.height || bounds?.height || 340;
     return {x: clamp(next.x, 8, Math.max(8, window.innerWidth - width - 8)), y: clamp(next.y, 8, Math.max(8, window.innerHeight - height - 8))};
   }
   function limitOffset(next: Point, nextScale: number) {
@@ -49,7 +55,7 @@ export function ReferenceImagePanel({src, visible, onReplace, onHide}: {src: str
     if (visible) setPosition(current => keepPanelInView(current));
   }, [visible]);
   useEffect(() => {
-    const resized = () => setPosition(current => keepPanelInView(current));
+    const resized = () => setPanelSize(current => { const next = normalizePanelSize(current); setPosition(position => keepPanelInView(position, next)); return next; });
     window.addEventListener('resize', resized); return () => window.removeEventListener('resize', resized);
   }, []);
 
@@ -65,6 +71,20 @@ export function ReferenceImagePanel({src, visible, onReplace, onHide}: {src: str
   }
   function endPanelDrag(event: ReactPointerEvent<HTMLElement>) {
     if (panelDrag.current?.pointerId === event.pointerId) panelDrag.current = null;
+  }
+  function startPanelResize(event: ReactPointerEvent<HTMLButtonElement>) {
+    event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId);
+    panelResize.current = {pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, size: panelSize};
+  }
+  function movePanelResize(event: ReactPointerEvent<HTMLButtonElement>) {
+    const resize = panelResize.current;
+    if (!resize || resize.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const next = normalizePanelSize({width: resize.size.width + event.clientX - resize.start.x, height: resize.size.height + event.clientY - resize.start.y});
+    setPanelSize(next); setPosition(current => keepPanelInView(current, next));
+  }
+  function endPanelResize(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (panelResize.current?.pointerId === event.pointerId) panelResize.current = null;
   }
   function beginImageGesture(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
@@ -95,7 +115,7 @@ export function ReferenceImagePanel({src, visible, onReplace, onHide}: {src: str
     event.preventDefault(); zoomTo(scaleValue.current * (event.deltaY < 0 ? 1.15 : 1 / 1.15), {x: event.clientX, y: event.clientY});
   }
 
-  return <section ref={panel} className="reference-panel" aria-label="参考图窗口" hidden={!visible} style={{left: position.x, top: position.y}}>
+  return <section ref={panel} className="reference-panel" aria-label="参考图窗口" hidden={!visible} style={{left: position.x, top: position.y, width: panelSize.width, height: panelSize.height}}>
     <header className="reference-panel-heading" onPointerDown={startPanelDrag} onPointerMove={movePanel} onPointerUp={endPanelDrag} onPointerCancel={endPanelDrag}>
       <span><GripHorizontal size={17}/><strong>参考图</strong></span>
       <div><button className="icon-button" aria-label="更换参考图" title="更换参考图" onClick={onReplace}><ImagePlus size={18}/></button><button className="icon-button" aria-label="隐藏参考图" title="隐藏参考图" onClick={onHide}><EyeOff size={18}/></button></div>
@@ -103,6 +123,7 @@ export function ReferenceImagePanel({src, visible, onReplace, onHide}: {src: str
     <div ref={stage} className="reference-image-stage" aria-label="参考图查看区域" onPointerDown={beginImageGesture} onPointerMove={moveImage} onPointerUp={endImageGesture} onPointerCancel={endImageGesture} onWheel={wheelImage}>
       <img src={src} alt="当前参考图" draggable={false} style={{transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`}}/>
     </div>
+    <button className="reference-panel-resize" aria-label="调整参考图窗口大小" title="调整参考图窗口大小" onPointerDown={startPanelResize} onPointerMove={movePanelResize} onPointerUp={endPanelResize} onPointerCancel={endPanelResize}><Maximize2 size={15}/></button>
     <footer className="reference-image-controls">
       <button className="icon-button" aria-label="缩小参考图" title="缩小参考图" disabled={scale <= 1} onClick={() => zoomTo(scaleValue.current / 1.25)}><ZoomOut size={17}/></button>
       <button className="reference-scale" aria-label="重置参考图缩放" title="重置参考图缩放" onClick={resetView}>{Math.round(scale * 100)}%</button>
